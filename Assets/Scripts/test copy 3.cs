@@ -3,7 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 
-public class TerrainSunRandomizerCopy : MonoBehaviour
+public class TerrainSunRandomizerCopy3 : MonoBehaviour
 {
     [Header("TerrainLayer 設定")]
     [SerializeField] private TerrainLayer[] terrainLayers;
@@ -344,7 +344,9 @@ public class TerrainSunRandomizerCopy : MonoBehaviour
             $"Field of View: {cam.fieldOfView}\n" +
             $"Aspect Ratio: {cam.aspect}\n" +
             $"Near Clip Plane: {cam.nearClipPlane}\n" +
-            $"Far Clip Plane: {cam.farClipPlane}\n";
+            $"Far Clip Plane: {cam.farClipPlane}\n" + 
+            $"Screen Width: {Screen.width}\n" +
+            $"Screen Height: {Screen.height}\n";
         File.WriteAllText(Path.Combine(directoryPath, $"{cam.name}{suffix}_internal.txt"), internalParams);
 
 

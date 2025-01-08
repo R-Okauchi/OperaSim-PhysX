@@ -3,7 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 
-public class TerrainSunRandomizerCopy : MonoBehaviour
+public class TerrainSunRandomizerCopy2 : MonoBehaviour
 {
     [Header("TerrainLayer 設定")]
     [SerializeField] private TerrainLayer[] terrainLayers;
