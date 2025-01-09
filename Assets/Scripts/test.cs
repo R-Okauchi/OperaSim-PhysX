@@ -82,8 +82,8 @@ public class TerrainSunRandomizer : MonoBehaviour
             for (int x = 0; x < terrainData.heightmapResolution; x++)
             {
                 float perlin = Mathf.PerlinNoise(x * 0.01f, y * 0.01f) * 0.025f;
-                // heights[y, x] = perlin;
-                heights[y, x] = 0f;
+                heights[y, x] = perlin;
+                // heights[y, x] = 0f;
             }
         }
         terrainData.SetHeights(0, 0, heights);
@@ -197,27 +197,62 @@ public class TerrainSunRandomizer : MonoBehaviour
 
         Vector3 terrainPosition = new Vector3(-terrainData.size.x * 0.5f, 0f, -terrainData.size.z * 0.5f);
 
-        // プレハブ数ぶんだけ配置
         for (int i = 0; i < prefabs.Count; i++)
         {
-            Vector3 randomPosition = new Vector3(
-                Random.Range(20, terrainData.size.x - 20),
-                0,
-                Random.Range(20, terrainData.size.z - 20)
-            );
+            bool placed = false;
+            int maxAttempts = 100;
 
-            float terrainHeight = terrainData.GetHeight(
-                (int)(randomPosition.x / terrainData.size.x * terrainData.heightmapResolution),
-                (int)(randomPosition.z / terrainData.size.z * terrainData.heightmapResolution)
-            );
+            for (int attempt = 0; attempt < maxAttempts; attempt++)
+            {
+                Vector3 randomPosition = new Vector3(
+                    Random.Range(20, terrainData.size.x - 20),
+                    0,
+                    Random.Range(20, terrainData.size.z - 20)
+                );
 
-            randomPosition.y = terrainHeight;
-            randomPosition += terrainPosition;
+                float terrainHeight = terrainData.GetHeight(
+                    (int)(randomPosition.x / terrainData.size.x * terrainData.heightmapResolution),
+                    (int)(randomPosition.z / terrainData.size.z * terrainData.heightmapResolution)
+                );
 
-            float randomYRotation = Random.Range(0f, 360f);
+                randomPosition.y = terrainHeight;
+                randomPosition += terrainPosition;
 
-            GameObject spawned = Instantiate(prefabs[i], randomPosition, Quaternion.Euler(0f, randomYRotation, 0f));
-            spawnedPrefabs.Add(spawned);
+                Quaternion randomRotation = Quaternion.Euler(0f, Random.Range(0f, 360f), 0f);
+
+                // 一時的に生成しバウンディングを取得
+                GameObject tempInstance = Instantiate(prefabs[i], randomPosition, randomRotation);
+                Bounds newBounds = tempInstance.GetComponentInChildren<Renderer>().bounds;
+
+                bool overlaps = false;
+                foreach (var existingGO in spawnedPrefabs)
+                {
+                    if (existingGO == null) continue;
+                    Bounds existingBounds = existingGO.GetComponentInChildren<Renderer>().bounds;
+                    if (newBounds.Intersects(existingBounds))
+                    {
+                        overlaps = true;
+                        break;
+                    }
+                }
+
+                if (!overlaps)
+                {
+                    spawnedPrefabs.Add(tempInstance);
+                    placed = true;
+                    break;
+                }
+                else
+                {
+                    // 重なっていた場合は削除
+                    Destroy(tempInstance);
+                }
+            }
+
+            if (!placed)
+            {
+                Debug.LogWarning($"{prefabs[i].name} の配置に失敗しました。");
+            }
         }
     }
 
@@ -236,7 +271,7 @@ public class TerrainSunRandomizer : MonoBehaviour
             {
                 float x = i * spacing - halfExtent;
                 float z = j * spacing - halfExtent;
-                Vector3 camPos = new Vector3(x, 50f, z);
+                Vector3 camPos = new Vector3(x, 30f, z);
 
                 GameObject camGO = new GameObject($"Camera_{i}_{j}");
                 camGO.transform.position = camPos;

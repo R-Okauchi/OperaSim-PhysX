@@ -1,33 +1,46 @@
 import os
+import time
+import matplotlib.pyplot as plt
 
-from alg.virtual.make_dataset.point_cloud.annotate_img import annotate_img_pixel
-from alg.virtual.make_dataset.point_cloud.annotate_pcd import reconstruct_point_cloud
+from .annotate_img import annotate_single_prefab_images
+from .annotate_pcd import reconstruct_point_cloud
 
-object_dirs = [
-    "object_1",
-    "object_2",
-    "object_3",
-]
+def process_directories(base_path):
+    i = 0
+    times = []
+    while i < 10:
+        dir_name = f"iteration_{i}"
+        dir_path = os.path.join(base_path, dir_name)
+        while not os.path.exists(dir_path):
+            print(f"Directory {dir_name} not found. Waiting for directory to be created...")
+            time.sleep(1)
+        if not is_processed(dir_path):
+            start_time = time.time()
+            time.sleep(5)
+            annotate_single_prefab_images(dir_path)
+            reconstruct_point_cloud(f"pcd_{i}.ply", dir_path)
+            mark_as_processed(dir_path)
+            end_time = time.time()
+            times.append(end_time - start_time)
+            print(f"Processed directory {dir_name}")
+        i += 1
 
-for i in range(380, 1000):
-    os.system(
-        r"C:\Users\ryout\AppData\Local\ov\pkg\isaac-sim-4.2.0\isaac-sim.bat --no_window --/omni/replicator/script=C:\Users\ryout\Documents\main_desk\omniverse_driver\alg\virtual\make_dataset\camera\world.py"
-    )
+    plot_times(times)
 
-    os.system(
-        r"C:\Users\ryout\AppData\Local\ov\pkg\isaac-sim-4.2.0\isaac-sim.bat --no_window --/omni/replicator/script=C:\Users\ryout\Documents\main_desk\omniverse_driver\alg\virtual\make_dataset\camera\object_1.py"
-    )
+def is_processed(directory):
+    return os.path.exists(os.path.join(directory, 'processed.txt'))
 
-    os.system(
-        r"C:\Users\ryout\AppData\Local\ov\pkg\isaac-sim-4.2.0\isaac-sim.bat --no_window --/omni/replicator/script=C:\Users\ryout\Documents\main_desk\omniverse_driver\alg\virtual\make_dataset\camera\object_2.py"
-    )
+def mark_as_processed(directory):
+    with open(os.path.join(directory, 'processed.txt'), 'w') as f:
+        f.write('processed')
 
-    os.system(
-        r"C:\Users\ryout\AppData\Local\ov\pkg\isaac-sim-4.2.0\isaac-sim.bat --no_window --/omni/replicator/script=C:\Users\ryout\Documents\main_desk\omniverse_driver\alg\virtual\make_dataset\camera\object_3.py"
-    )
-    for j, object_dir in enumerate(object_dirs):
-        annotate_img_pixel(object_dir, annotation_value=j + 1)
+def plot_times(times):
+    plt.plot(range(1, len(times) + 1), times)
+    plt.xlabel('Number of Directories Processed')
+    plt.ylabel('Processing Time (seconds)')
+    plt.title('Processing Time per Directory')
+    plt.show()
 
-    reconstruct_point_cloud(
-        "world", "object_1", "object_2", "object_3", f"data_{i}.ply"
-    )
+if __name__ == "__main__":
+    base_path = '../data_images'
+    process_directories(base_path)

@@ -1,9 +1,11 @@
 import numpy as np
+import math
 import cv2
 import open3d as o3d
 from scipy.spatial.transform import Rotation as R
 from PIL import Image
 import imageio.v3 as iio
+import matplotlib.pyplot as plt
 
 
 def load_internal_parameters(file_path):
@@ -98,9 +100,17 @@ def generate_point_cloud(depth, color, intrinsics, extrinsics):
 
     # Create a grid of pixel coordinates
     i, j = np.meshgrid(np.arange(w), np.arange(h))
-    x = (i - cx) * depth / fx
-    y = (j - cy) * depth / fy
-    z = depth
+    # x = (i - cx)
+    # y = (j - cy)
+    # z = depth * 100000
+    print(depth)
+    x = (i - cx) - (depth - 0.005702) * 100 * (i - cx) / (1 - 0.005702)
+    y = (j - cy) - (depth - 0.005702) * 100 * (j - cy) / (1 - 0.005702)
+    z = depth * 100000
+    # x = np.where((i - cx) / fx > 0, (i - cx) / fx +depth * math.tan(fov_x_rad / 2) * 100, (i - cx) / fx - depth * math.tan(fov_x_rad / 2) * 100)
+    # y = np.where((j - cy) / fy > 0, (j - cy) / fy +depth * math.tan(fov_y_rad / 2) * 100, (j - cy) / fy - depth * math.tan(fov_y_rad / 2) * 100)
+    # z = depth * 100
+
 
     # Stack into 3D points in camera space
     points_camera = np.stack((x, y, z), axis=-1).reshape(-1, 3)
@@ -130,6 +140,9 @@ def main():
 
     # Load images
     depth = load_depth_image(depth_image_path)
+    plt.imshow(depth, cmap="gray")
+    plt.colorbar()
+    plt.show()
     color = load_color_image(color_image_path)
 
     # Image dimensions
