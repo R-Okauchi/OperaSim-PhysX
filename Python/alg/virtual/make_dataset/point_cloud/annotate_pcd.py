@@ -232,6 +232,58 @@ def downsample_point_cloud(points, colors, annotations=None, voxel_size=0.05):
 
     return downsampled_points, downsampled_colors
 
+def fade_point_cloud(points, colors, annotations, voxel_size=0.05, no_fade_distance=1.0, fade_start=1.5, fade_end=3.0):
+    """
+    点群の周縁部を疎にし、フェードアウトさせる。
+    
+    Args:
+        points (ndarray): 点群の座標データ (N, 3)。
+        colors (ndarray): 点群の色データ (N, 3)。
+        voxel_size (float): ボクセルグリッドサイズ。
+        no_fade_distance (float): フェード処理をかけない距離の閾値。
+        fade_start (float): フェードアウトが始まる距離。
+        fade_end (float): フェードアウトが終了する距離。
+
+    Returns:
+        ndarray, ndarray: フェードアウト後の点群の座標と色。
+    """
+    # 点群の中心を計算
+    center = np.mean(points, axis=0)
+    
+    # 点群の各点から中心までの距離を計算
+    distances = np.linalg.norm(points - center, axis=1)
+    
+    # フェード対象外の点を選別
+    no_fade_mask = distances <= no_fade_distance
+    
+    # フェードアウトの比率を計算 (0: 完全表示, 1: フェードアウト)
+    fade_ratio = np.zeros_like(distances)  # 初期値は0 (フェードなし)
+    fade_zone_mask = (distances > no_fade_distance) & (distances <= fade_end)
+    fade_ratio[fade_zone_mask] = np.clip(
+        (distances[fade_zone_mask] - fade_start) / (fade_end - fade_start), 0, 1
+    )
+    
+    # サンプリング確率をフェード比率で調整 (フェード比率が高いほどサンプリングされにくい)
+    sampling_prob = np.ones_like(distances)  # 初期値は1 (完全表示)
+    sampling_prob[fade_zone_mask] = 1 - fade_ratio[fade_zone_mask]
+    sampled_indices = np.random.rand(len(points)) < sampling_prob
+    
+    # フェード対象外の点はそのまま保持
+    final_mask = sampled_indices | no_fade_mask
+    
+    final_mask &= distances <= fade_end
+    
+    # サンプリング後の点群と色
+    faded_points = points[final_mask]
+    faded_colors = colors[final_mask]
+    faded_annotations = annotations[final_mask]
+    
+    # フェードアウト色 (透明化などをシミュレーション)
+    # faded_colors[~no_fade_mask[final_mask]] *= (1 - fade_ratio[final_mask][~no_fade_mask[final_mask]][:, None])
+    
+    return faded_points, faded_colors, faded_annotations
+
+
 def reconstruct_point_cloud(pcd_name, base_directory):
     # Automatically find camera data
     camera_data = find_camera_data(base_directory)
@@ -241,7 +293,9 @@ def reconstruct_point_cloud(pcd_name, base_directory):
 
     # Generate combined point cloud
     all_points, all_colors, all_annotations = generate_combined_point_cloud(camera_data)
-    
+    all_points, all_colors, all_annotations = fade_point_cloud(
+        all_points, all_colors, all_annotations, voxel_size=0.01, no_fade_distance=25.0, fade_start=25, fade_end=50
+    )
     all_points, all_colors, all_annotations = downsample_point_cloud(
         all_points, all_colors, all_annotations, voxel_size=0.01
     )
@@ -271,7 +325,7 @@ def reconstruct_point_cloud(pcd_name, base_directory):
     )
     np.save(annotation_path, all_annotations)
 
-    # Visualize the point cloud
+    # # Visualize the point cloud
     # o3d.visualization.draw_geometries([pcd])
     # annotated_pcd = o3d.geometry.PointCloud()
     # annotated_pcd.points = o3d.utility.Vector3dVector(all_points)

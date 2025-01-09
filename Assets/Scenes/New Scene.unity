@@ -160,7 +160,7 @@ MonoBehaviour:
   - {fileID: 3012941523855896098, guid: d238bbe13fc8542379c1a2d999ddeab0, type: 3}
   - {fileID: 3818208765571841882, guid: 277fd3c9351a04508bed10c785dfafd0, type: 3}
   depthToColorMaterial: {fileID: 2100000, guid: cbffae2a1b10b4b06b944b53c1e5ba03, type: 2}
-  numIterations: 10
+  numIterations: 1000
 --- !u!4 &1524765446
 Transform:
   m_ObjectHideFlags: 0

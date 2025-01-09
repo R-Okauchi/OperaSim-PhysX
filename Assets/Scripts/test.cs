@@ -19,7 +19,7 @@ public class TerrainSunRandomizer : MonoBehaviour
     // 生成したプレハブへの参照を保持
     private List<GameObject> spawnedPrefabs = new List<GameObject>();
 
-    [SerializeField] private int numIterations = 10;
+    [SerializeField] private int numIterations = 1000;
     private List<Camera> cameras = new List<Camera>();
 
     private void Start()
@@ -67,6 +67,10 @@ public class TerrainSunRandomizer : MonoBehaviour
             yield return StartCoroutine(GenerateSceneAndCapture(i));
 
             Debug.Log($"=== イテレーション {i} 終了 ===");
+
+            // メモリ解放
+            Resources.UnloadUnusedAssets();
+            System.GC.Collect();
         }
 
         Debug.Log("すべてのイテレーションが完了しました。");
@@ -87,15 +91,41 @@ public class TerrainSunRandomizer : MonoBehaviour
 
         // ---- 1-2. Perlin Noise で適当な起伏を作る ----
         float[,] heights = new float[terrainData.heightmapResolution, terrainData.heightmapResolution];
+        float randomSeed = Random.Range(0f, 100f); // ランダムなシード値を生成
         for (int y = 0; y < terrainData.heightmapResolution; y++)
         {
             for (int x = 0; x < terrainData.heightmapResolution; x++)
             {
-                float perlin = Mathf.PerlinNoise(x * 0.01f, y * 0.01f) * 0.025f;
+                float perlin = Mathf.PerlinNoise((x + randomSeed) * 0.01f, (y + randomSeed) * 0.01f) * 0.025f;
                 heights[y, x] = perlin;
-                // heights[y, x] = 0f;
             }
         }
+
+        // ---- 1-3. ランダムに台地を追加 ----
+        if (Random.value > 0.8f) // 10% の確率で台地を追加
+        {
+            int plateauX = Random.Range(0, terrainData.heightmapResolution);
+            int plateauY = Random.Range(0, terrainData.heightmapResolution);
+            int plateauWidth = Random.Range(30, 100); // 台地の幅
+            int plateauHeight = Random.Range(30, 100); // 台地の高さ
+            float plateauMaxHeight = 0.05f; // 台地の最大高さ
+
+            for (int y = plateauY - plateauHeight; y < plateauY + plateauHeight && y < terrainData.heightmapResolution; y++)
+            {
+                for (int x = plateauX - plateauWidth; x < plateauX + plateauWidth && x < terrainData.heightmapResolution; x++)
+                {
+                    if (x >= 0 && y >= 0)
+                    {
+                        float distanceToCenterX = Mathf.Abs(x - plateauX) / (float)plateauWidth;
+                        float distanceToCenterY = Mathf.Abs(y - plateauY) / (float)plateauHeight;
+                        float distanceToCenter = Mathf.Sqrt(distanceToCenterX * distanceToCenterX + distanceToCenterY * distanceToCenterY);
+                        float fadeFactor = Mathf.SmoothStep(0f, 1f, 1f - distanceToCenter);
+                        heights[y, x] += plateauMaxHeight * fadeFactor;
+                    }
+                }
+            }
+        }
+
         terrainData.SetHeights(0, 0, heights);
 
         // ---- 2. TerrainLayer を TerrainData に登録 ----
@@ -382,6 +412,7 @@ public class TerrainSunRandomizer : MonoBehaviour
         string colorFilename = Path.Combine(directoryPath, $"{cam.name}{suffix}.png");
         File.WriteAllBytes(colorFilename, colorBytes);
 
+        Destroy(screenShot);
 
         // --- カメラ外部パラメータを保存 (お好みで) ---
         string externalParams = $"Position: {cam.transform.position}\nRotation: {cam.transform.rotation}\n";
@@ -394,7 +425,6 @@ public class TerrainSunRandomizer : MonoBehaviour
             $"Near Clip Plane: {cam.nearClipPlane}\n" +
             $"Far Clip Plane: {cam.farClipPlane}\n";
         File.WriteAllText(Path.Combine(directoryPath, $"{cam.name}{suffix}_internal.txt"), internalParams);
-
 
         // ---(2) 深度画像をカスタムシェーダで取得・保存 (EXR)---
 
@@ -429,5 +459,6 @@ public class TerrainSunRandomizer : MonoBehaviour
         depthRT.Release();
         Destroy(tempRT);
         Destroy(depthRT);
+        Destroy(depthTex);
     }
 }
