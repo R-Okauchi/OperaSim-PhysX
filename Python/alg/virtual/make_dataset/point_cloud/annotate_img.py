@@ -1,5 +1,6 @@
 import glob
 import os
+from concurrent.futures import ThreadPoolExecutor
 
 import imageio
 import numpy as np
@@ -34,6 +35,44 @@ def annotate_non_inf_pixels(depth_array, rgb_array, annotation_value=1):
 
     return annotation_map, annotated_image
 
+def process_image(png_file, images_path):
+    base_name = os.path.splitext(os.path.basename(png_file))[0]
+    depth_file = os.path.join(images_path, f"{base_name}_depth.exr")
+    if not os.path.exists(depth_file):
+        return
+
+    rgb_image = Image.open(png_file).convert("RGB")
+    rgb_array = np.array(rgb_image)
+    # print(rgb_array.shape)
+
+    depth_data = imageio.imread(depth_file, format="EXR-FI")
+
+    if depth_data.ndim == 3 and depth_data.shape[2] > 1:
+        depth_data = depth_data[:, :, 0]
+
+    annotation_value = 0
+    if "zx120" in base_name:
+        annotation_value = 1
+    elif "ic120" in base_name:
+        annotation_value = 2
+    elif "d37pxi24" in base_name:
+        annotation_value = 3
+    else:
+        raise ValueError(f"Unknown object: {base_name}")
+
+    annotation_map, annotated_image = annotate_non_inf_pixels(
+        depth_data, rgb_array, annotation_value
+    )
+
+    annotation_map_path = os.path.join(
+        images_path, f"{base_name}_annotation.npy"
+    )
+    np.save(annotation_map_path, annotation_map)
+
+    annotated_image_path = os.path.join(
+        images_path, f"{base_name}_annotated.png"
+    )
+    Image.fromarray(annotated_image).save(annotated_image_path)
 
 def annotate_single_prefab_images(images_dir):
     """
@@ -51,61 +90,10 @@ def annotate_single_prefab_images(images_dir):
     png_files = glob.glob(os.path.join(images_path, "*_noTerrain_only_*.png"))
     if not png_files:
         print(f"[{images_dir}] 該当するPNGが見つかりませんでした。")
+        return
 
-    for png_file in png_files:
-        base_name = os.path.splitext(os.path.basename(png_file))[0]
-        depth_file = os.path.join(images_path, f"{base_name}_depth.exr")
-        if not os.path.exists(depth_file):
-            # print(f"対応するEXRファイルが見つかりません: {depth_file}")
-            continue
-
-        # --- 1. RGB画像の読み込み (PIL) ---
-        rgb_image = Image.open(png_file).convert("RGB")
-        rgb_array = np.array(rgb_image)
-        # print(f"RGB画像を読み込みました: {rgb_array.shape}")
-
-        # --- 2. EXR深度の読み込み (imageio) ---
-        #     imageio で読み込むと shape = (H, W) or (H, W, C) になる場合がある
-        depth_data = imageio.imread(depth_file, format="EXR-FI")
-        depth_set = set(depth_data.flatten())
-        if len(depth_set) == 1:
-            print(f"深度データが一定値のためスキップ: {depth_set}")
-            raise ValueError("深度データが一定値のためスキップ")
-
-        # depth_data が (H, W, 3) の場合は、チャネルを1つにまとめる等の処理が必要。
-        # Unity の出力方法によって異なるので、必要に応じて下記を修正。
-        # 例: とりあえずRチャンネルだけ使う:
-        if depth_data.ndim == 3 and depth_data.shape[2] > 1:
-            depth_data = depth_data[:, :, 0]
-
-        # --- 3. アノテーション作成 ---
-        if "zx120" in base_name:
-            annotation_value = 1
-        elif "ic120" in base_name:
-            annotation_value = 2
-        elif "d37pxi24" in base_name:
-            annotation_value = 3
-        
-        annotation_map, annotated_image = annotate_non_inf_pixels(
-            depth_data, rgb_array, annotation_value
-        )
-
-        # --- 4. 保存 ---
-        # アノテーションマップは Numpy の .npy で保存
-        annotation_map_path = os.path.join(
-            images_path, f"{base_name}_annotation.npy"
-        )
-        np.save(annotation_map_path, annotation_map)
-
-        # アノテーションを可視化した画像を PNG として保存
-        annotated_image_path = os.path.join(
-            images_path, f"{base_name}_annotated.png"
-        )
-        Image.fromarray(annotated_image).save(annotated_image_path)
-        
-        # print(f"アノテーションを作成しました: {annotation_map_path}, {annotated_image_path}")
-        # break
-
+    with ThreadPoolExecutor() as executor:
+        executor.map(lambda png_file: process_image(png_file, images_path), png_files)
 
 # スクリプトを直接実行する場合
 if __name__ == "__main__":

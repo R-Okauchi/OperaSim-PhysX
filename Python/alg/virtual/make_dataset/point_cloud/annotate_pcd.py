@@ -4,7 +4,8 @@ import open3d as o3d
 from scipy.spatial.transform import Rotation as R
 from PIL import Image
 import imageio.v3 as iio
-import matplotlib.pyplot as plt
+# import matplotlib.pyplot as plt
+from concurrent.futures import ThreadPoolExecutor
 
 def load_internal_parameters(file_path):
     """
@@ -157,6 +158,25 @@ def find_camera_data(directory):
 
     return camera_data
 
+def process_camera_data(camera):
+    # Load parameters
+    intrinsics = load_internal_parameters(camera["internal_params"])
+    extrinsics = load_external_parameters(camera["external_params"])
+
+    # Load depth and color images
+    depth = load_depth_image(camera["depth_image"])
+    color = load_color_image(camera["color_image"])
+
+    # Automatically determine image dimensions
+    image_height, image_width = depth.shape
+    intrinsics.update(calculate_focal_length(intrinsics, image_width, image_height))
+
+    # Annotation
+    annotation_map = np.load(camera["zx120_map"]) + np.load(camera["ic120_map"]) + np.load(camera["d37pxi24_map"])
+
+    # Generate point cloud for this camera
+    points, colors, mask = generate_point_cloud(depth, color, intrinsics, extrinsics)
+    return points, colors, annotation_map[mask].flatten()
 
 def generate_combined_point_cloud(camera_data):
     """
@@ -172,30 +192,14 @@ def generate_combined_point_cloud(camera_data):
     all_colors = []
     all_annotations = []
 
-    for camera in camera_data:
-        # Load parameters
-        intrinsics = load_internal_parameters(camera["internal_params"])
-        extrinsics = load_external_parameters(camera["external_params"])
+    with ThreadPoolExecutor() as executor:
+        results = list(executor.map(process_camera_data, camera_data))
 
-        # Load depth and color images
-        depth = load_depth_image(camera["depth_image"])
-        # plt.imshow(depth, cmap="gray")
-        # plt.colorbar()
-        # plt.show()
-        color = load_color_image(camera["color_image"])
-
-        # Automatically determine image dimensions
-        image_height, image_width = depth.shape
-        intrinsics.update(calculate_focal_length(intrinsics, image_width, image_height))
-
-        # Annotation
-        annotation_map = np.load(camera["zx120_map"]) + np.load(camera["ic120_map"]) + np.load(camera["d37pxi24_map"])
-        
-        # Generate point cloud for this camera
-        points, colors, mask = generate_point_cloud(depth, color, intrinsics, extrinsics)
+    for points, colors, annotations in results:
         all_points.append(points)
         all_colors.append(colors)
-        all_annotations.append(annotation_map[mask].flatten())
+        all_annotations.append(annotations)
+
     all_points = np.concatenate(all_points, axis=0)
     all_colors = np.concatenate(all_colors, axis=0)
     all_annotations = np.concatenate(all_annotations, axis=0)

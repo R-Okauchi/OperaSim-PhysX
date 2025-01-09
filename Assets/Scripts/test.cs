@@ -38,6 +38,15 @@ public class TerrainSunRandomizer : MonoBehaviour
     {
         for (int i = 0; i < numIterations; i++)
         {
+            if (i > 0)
+            {
+                string prevDir = $"data_images/iteration_{i-1}";
+                while (Directory.Exists(prevDir))
+                {
+                    Debug.Log($"前のイテレーションフォルダ {prevDir} がまだ存在します。削除されるまで待機します。");
+                    yield return new WaitForSeconds(1f);
+                }
+            }
             Debug.Log($"=== イテレーション {i} 開始 ===");
             // 1. 既にあるオブジェクトのクリーンアップ
             foreach (var go in spawnedPrefabs)
@@ -63,6 +72,7 @@ public class TerrainSunRandomizer : MonoBehaviour
         Debug.Log("すべてのイテレーションが完了しました。");
 
         Time.timeScale = 0f; // ゲームを一時停止
+        Application.Quit();
     }
 
     /// <summary>
