@@ -1,0 +1,69 @@
+[tool.poetry]
+name = "opera-python"
+version = "0.1.0"
+description = ""
+authors = ["R-Okauchi <ryoutaokauchi@g.ecc.u-tokyo.ac.jp>"]
+readme = "README.md"
+packages = [
+    {include = "alg"},
+]
+
+[tool.poetry.dependencies]
+python = "^3.10"
+numpy = "^1.26.4"
+opencv-python = "^4.10.0.84"
+open3d = "^0.18.0"
+pillow = "^11.1.0"
+torch = "^2.5.1"
+torchvision = "^0.20.1"
+torchaudio = "^2.5.1"
+torch-geometric = "^2.6.1"
+imageio = "^2.36.1"
+metalpy = "^0.2.0"
+scikit-learn = "^1.6.0"
+addict = "^2.4.0"
+pandas = "^2.2.3"
+matplotlib = "^3.10.0"
+pyyaml = "^6.0.2"
+
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^7.4.3"
+ipykernel = "^6.29.4"
+types-pytz = "^2024.1.0.20240417"
+mypy = "^1.11.2"
+pytest-asyncio = "0.23.0"
+polyfactory = "^2.16.2"
+pytest-mock = "^3.14.0"
+types-requests = "^2.32.0.20241016"
+ruff = "^0.8.2"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.mypy]
+python_version = "3.10"
+ignore_missing_imports = true
+exclude = ["data"]
+plugins = ["pydantic.mypy"]
+follow_imports = "silent"
+warn_redundant_casts = true
+warn_unused_ignores = true
+disallow_any_generics = true
+check_untyped_defs = true
+no_implicit_reexport = true
+
+[tool.pydantic-mypy]
+warn_required_dynamic_aliases = true
+warn_untyped_fields = true
+init_forbid_extra = true
+init_typed = true
+
+[tool.ruff]
+line-length = 88
+indent-width = 4
+
+[tool.ruff.lint]
+extend-select = ["I"]
+extend-ignore = ["E722"]
