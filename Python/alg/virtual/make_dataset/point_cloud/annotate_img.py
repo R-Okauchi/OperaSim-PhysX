@@ -11,12 +11,13 @@ def annotate_non_inf_pixels(depth_array, rgb_array, annotation_value=1):
     深度に値があるピクセルをオブジェクトとしてアノテーションする。
     ここでは 0.99以上を背景扱い (== Far clip 付近) とみなす例。
     """
+    # print(depth_array)
     # 1. 基本的に \infty, nan, 0以下 は使わない
     invalid_mask = np.isinf(depth_array) | np.isnan(depth_array) | (depth_array <= 0)
 
     # 2. 1.0 に近いもの (0.99以上) も背景扱い
-    far_threshold = 0.99
-    invalid_mask |= (depth_array >= far_threshold)
+    # far_threshold = 0.99
+    # invalid_mask |= (depth_array >= far_threshold)
 
     non_inf_mask = ~invalid_mask
 
@@ -43,7 +44,7 @@ def process_image(png_file, images_path):
 
     rgb_image = Image.open(png_file).convert("RGB")
     rgb_array = np.array(rgb_image)
-    # print(rgb_array.shape)
+    print(rgb_array.shape)
 
     depth_data = imageio.imread(depth_file, format="EXR-FI")
 

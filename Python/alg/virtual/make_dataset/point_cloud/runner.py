@@ -3,6 +3,7 @@ import time
 import datetime
 import matplotlib.pyplot as plt
 import shutil
+import csv
 
 from .annotate_img import annotate_single_prefab_images
 from .annotate_pcd import reconstruct_point_cloud
@@ -67,6 +68,14 @@ def plot_times(times):
     filename = f"cumulative_processing_times_{current_time}.png"
     plt.savefig(filename)
     plt.show()
+
+    # 時間情報をCSVファイルに保存
+    csv_filename = f"processing_times_{current_time}.csv"
+    with open(csv_filename, mode='w', newline='') as file:
+        writer = csv.writer(file)
+        writer.writerow(['Directory Index', 'Cumulative Processing Time (seconds)'])
+        for index, time in enumerate(times, start=1):
+            writer.writerow([index, time])
 
 if __name__ == "__main__":
     base_path = '../data_images'

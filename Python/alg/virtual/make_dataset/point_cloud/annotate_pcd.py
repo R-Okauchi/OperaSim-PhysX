@@ -232,7 +232,7 @@ def downsample_point_cloud(points, colors, annotations=None, voxel_size=0.05):
 
     return downsampled_points, downsampled_colors
 
-def fade_point_cloud(points, colors, annotations, voxel_size=0.05, no_fade_distance=1.0, fade_start=1.5, fade_end=3.0):
+def fade_point_cloud(points, colors, annotations, no_fade_distance=1.0, fade_start=1.5, fade_end=3.0):
     """
     点群の周縁部を疎にし、フェードアウトさせる。
     
@@ -294,43 +294,45 @@ def reconstruct_point_cloud(pcd_name, base_directory):
     # Generate combined point cloud
     all_points, all_colors, all_annotations = generate_combined_point_cloud(camera_data)
     all_points, all_colors, all_annotations = fade_point_cloud(
-        all_points, all_colors, all_annotations, voxel_size=0.01, no_fade_distance=25.0, fade_start=25, fade_end=50
+        all_points, all_colors, all_annotations, no_fade_distance=25.0, fade_start=25, fade_end=50
     )
     all_points, all_colors, all_annotations = downsample_point_cloud(
-        all_points, all_colors, all_annotations, voxel_size=0.01
+        all_points, all_colors, all_annotations, voxel_size=0.1
     )
     # 反転
     all_points[:, 1] = -all_points[:, 1]
     all_points[:, 2] = -all_points[:, 2]
-    # unique_annotations = np.unique(all_annotations)
-    # set_annotations_val = set(unique_annotations)
-    # print(set_annotations_val)
-    # annotation_colors = {value: np.random.rand(3) for value in unique_annotations}
-    # colored_annotations = np.array([annotation_colors[val] for val in all_annotations])
+    unique_annotations = np.unique(all_annotations)
+    set_annotations_val = set(unique_annotations)
+    print(set_annotations_val)
+    annotation_colors = {value: np.random.rand(3) for value in unique_annotations}
+    colored_annotations = np.array([annotation_colors[val] for val in all_annotations])
 
     # Add annotations to point cloud
     pcd = o3d.geometry.PointCloud()
     pcd.points = o3d.utility.Vector3dVector(all_points)
     pcd.colors = o3d.utility.Vector3dVector(all_colors)
+    
+    os.mkdir("../dataset_1", exist_ok=True)
 
     # Save point cloud
-    output_pcd_path = os.path.join("../dataset", pcd_name)
+    output_pcd_path = os.path.join("../dataset_1", pcd_name)
 
     o3d.io.write_point_cloud(output_pcd_path, pcd)
     # print(f"Saved reconstructed point cloud with annotations to {output_pcd_path}")
 
     # Save the annotations
     annotation_path = os.path.join(
-        "../dataset", f"{pcd_name.split('.')[0]}_annotations.npy"
+        "../dataset_1", f"{pcd_name.split('.')[0]}_annotations.npy"
     )
     np.save(annotation_path, all_annotations)
 
     # # Visualize the point cloud
-    # o3d.visualization.draw_geometries([pcd])
-    # annotated_pcd = o3d.geometry.PointCloud()
-    # annotated_pcd.points = o3d.utility.Vector3dVector(all_points)
-    # annotated_pcd.colors = o3d.utility.Vector3dVector(colored_annotations)
-    # o3d.visualization.draw_geometries([annotated_pcd])
+    o3d.visualization.draw_geometries([pcd])
+    annotated_pcd = o3d.geometry.PointCloud()
+    annotated_pcd.points = o3d.utility.Vector3dVector(all_points)
+    annotated_pcd.colors = o3d.utility.Vector3dVector(colored_annotations)
+    o3d.visualization.draw_geometries([annotated_pcd])
 
 
 if __name__ == "__main__":

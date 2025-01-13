@@ -4,6 +4,9 @@ version = "0.1.0"
 description = ""
 authors = ["R-Okauchi <ryoutaokauchi@g.ecc.u-tokyo.ac.jp>"]
 readme = "README.md"
+packages = [
+    {include = "alg"},
+]
 
 [tool.poetry.dependencies]
 python = "^3.10"
@@ -11,7 +14,6 @@ numpy = "^1.26.4"
 opencv-python = "^4.10.0.84"
 open3d = "^0.18.0"
 pillow = "^11.1.0"
-pointnet2 = {git = "https://github.com/erikwijmans/Pointnet2_PyTorch.git"}
 torch = "^2.5.1"
 torchvision = "^0.20.1"
 torchaudio = "^2.5.1"
@@ -22,6 +24,7 @@ scikit-learn = "^1.6.0"
 addict = "^2.4.0"
 pandas = "^2.2.3"
 matplotlib = "^3.10.0"
+pyyaml = "^6.0.2"
 
 
 [tool.poetry.group.dev.dependencies]

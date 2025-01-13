@@ -2,6 +2,7 @@ using UnityEngine;
 using System.Collections;
 using System.Collections.Generic;
 using System.IO;
+using SD = System.Diagnostics; // 追加
 
 public class TerrainSunRandomizer : MonoBehaviour
 {
@@ -48,6 +49,19 @@ public class TerrainSunRandomizer : MonoBehaviour
                 }
             }
             Debug.Log($"=== イテレーション {i} 開始 ===");
+
+            // メモリ使用量をチェック
+            SD.Process currentProcess = SD.Process.GetCurrentProcess();
+            long memoryUsage = currentProcess.PrivateMemorySize64;
+            Debug.Log($"現在のメモリ使用量: {memoryUsage / (1024 * 1024)} MB");
+
+            // メモリ使用量が一定量を超えた場合、クールダウンを挟む
+            if (memoryUsage >  2L * 1024 * 1024 * 1024) // 1GBを超えた場合
+            {
+                Debug.Log("メモリ使用量が1GBを超えました。クールダウンを挟みます。");
+                yield return new WaitForSeconds(10f); // 10秒間のクールダウン
+            }
+
             // 1. 既にあるオブジェクトのクリーンアップ
             foreach (var go in spawnedPrefabs)
             {
@@ -76,7 +90,7 @@ public class TerrainSunRandomizer : MonoBehaviour
         Debug.Log("すべてのイテレーションが完了しました。");
 
         Time.timeScale = 0f; // ゲームを一時停止
-        Application.Quit();
+        // Application.Quit();
     }
 
     /// <summary>

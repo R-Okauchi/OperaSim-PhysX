@@ -83,3 +83,4 @@ __pycache__/
 # point cloud data
 *.ply
 dataset/
+dataset_*/
