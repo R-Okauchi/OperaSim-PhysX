@@ -6,6 +6,9 @@ from PIL import Image
 import imageio.v3 as iio
 # import matplotlib.pyplot as plt
 from concurrent.futures import ThreadPoolExecutor
+from perlin_noise import PerlinNoise
+import random
+from scipy.interpolate import RegularGridInterpolator
 
 def load_internal_parameters(file_path):
     """
@@ -172,10 +175,23 @@ def process_camera_data(camera):
     intrinsics.update(calculate_focal_length(intrinsics, image_width, image_height))
 
     # Annotation
-    annotation_map = np.load(camera["zx120_map"]) + np.load(camera["ic120_map"]) + np.load(camera["d37pxi24_map"])
+    # annotation_map = np.load(camera["zx120_map"]) + np.load(camera["ic120_map"]) + np.load(camera["d37pxi24_map"])
+    annotation_map = np.load(camera["zx120_map"]) * np.load(camera["ic120_map"]) * np.load(camera["d37pxi24_map"])
+    
+    valid_annotations = {1, 2, 3, 4}
+    unique_annotations = np.unique(annotation_map)
+    # print(unique_annotations)
+    if not set(unique_annotations).issubset(valid_annotations):
+        raise ValueError(f"Invalid annotations found: {set(unique_annotations) - valid_annotations}")
+    remap_dict = {1: 0, 2: 1, 3: 2, 4: 3}
+    annotation_map = np.vectorize(remap_dict.get)(annotation_map)
+
+    
 
     # Generate point cloud for this camera
     points, colors, mask = generate_point_cloud(depth, color, intrinsics, extrinsics)
+    
+
     return points, colors, annotation_map[mask].flatten()
 
 def generate_combined_point_cloud(camera_data):
@@ -232,59 +248,111 @@ def downsample_point_cloud(points, colors, annotations=None, voxel_size=0.05):
 
     return downsampled_points, downsampled_colors
 
-def fade_point_cloud(points, colors, annotations, no_fade_distance=1.0, fade_start=1.5, fade_end=3.0):
-    """
-    点群の周縁部を疎にし、フェードアウトさせる。
-    
-    Args:
-        points (ndarray): 点群の座標データ (N, 3)。
-        colors (ndarray): 点群の色データ (N, 3)。
-        voxel_size (float): ボクセルグリッドサイズ。
-        no_fade_distance (float): フェード処理をかけない距離の閾値。
-        fade_start (float): フェードアウトが始まる距離。
-        fade_end (float): フェードアウトが終了する距離。
+def fade_point_cloud(
+    points, colors, annotations,
+    center=None,
+    half_side=40.0,
+    amplitude=10.0,
+    scale=0.05,
+    fade_range=5.0,
+    seed=None,
+    grid_size=256
+):
+    if seed is None:
+        seed = random.randint(0, 9999999)
+    noise_fn = PerlinNoise(octaves=1, seed=seed)
 
-    Returns:
-        ndarray, ndarray: フェードアウト後の点群の座標と色。
-    """
-    # 点群の中心を計算
-    center = np.mean(points, axis=0)
-    
-    # 点群の各点から中心までの距離を計算
-    distances = np.linalg.norm(points - center, axis=1)
-    
-    # フェード対象外の点を選別
-    no_fade_mask = distances <= no_fade_distance
-    
-    # フェードアウトの比率を計算 (0: 完全表示, 1: フェードアウト)
-    fade_ratio = np.zeros_like(distances)  # 初期値は0 (フェードなし)
-    fade_zone_mask = (distances > no_fade_distance) & (distances <= fade_end)
-    fade_ratio[fade_zone_mask] = np.clip(
-        (distances[fade_zone_mask] - fade_start) / (fade_end - fade_start), 0, 1
-    )
-    
-    # サンプリング確率をフェード比率で調整 (フェード比率が高いほどサンプリングされにくい)
-    sampling_prob = np.ones_like(distances)  # 初期値は1 (完全表示)
-    sampling_prob[fade_zone_mask] = 1 - fade_ratio[fade_zone_mask]
-    sampled_indices = np.random.rand(len(points)) < sampling_prob
-    
-    # フェード対象外の点はそのまま保持
-    final_mask = sampled_indices | no_fade_mask
-    
-    final_mask &= distances <= fade_end
-    
-    # サンプリング後の点群と色
-    faded_points = points[final_mask]
-    faded_colors = colors[final_mask]
-    faded_annotations = annotations[final_mask]
-    
-    # フェードアウト色 (透明化などをシミュレーション)
-    # faded_colors[~no_fade_mask[final_mask]] *= (1 - fade_ratio[final_mask][~no_fade_mask[final_mask]][:, None])
-    
-    return faded_points, faded_colors, faded_annotations
+    if center is None:
+        cx = np.mean(points[:, 0])
+        cz = np.mean(points[:, 2])
+    else:
+        cx, cz = center
+
+    x = points[:, 0]
+    z = points[:, 2]
+
+    # グリッド範囲を設定 (正方形の範囲 + 余裕)
+    margin = amplitude * 2
+    min_x = cx - (half_side + margin)
+    max_x = cx + (half_side + margin)
+    min_z = cz - (half_side + margin)
+    max_z = cz + (half_side + margin)
+
+    gx = np.linspace(min_x, max_x, grid_size)
+    gz = np.linspace(min_z, max_z, grid_size)
+
+    # 4つのオフセットを使い分ける
+    off_left  = random.uniform(0, 1e6)
+    off_right = random.uniform(0, 1e6)
+    off_near  = random.uniform(0, 1e6)
+    off_far   = random.uniform(0, 1e6)
+
+    def make_noise_map(mode="left", offset=0.0):
+        # 2Dのnoiseマップを作成
+        noise_map = np.zeros((grid_size, grid_size), dtype=np.float32)
+        for j in range(grid_size):
+            for i in range(grid_size):
+                if mode in ["left", "right"]:
+                    # zをメイン入力
+                    val = noise_fn([gz[j]*scale, offset])
+                else:
+                    # near, far は xをメイン入力
+                    val = noise_fn([gx[i]*scale, offset])
+                val_01 = (val + 1.0)*0.5
+                noise_map[j, i] = val_01
+        return noise_map
+
+    # 左辺/右辺/手前辺/奥辺のノイズマップ
+    nm_left  = make_noise_map("left",  off_left)
+    nm_right = make_noise_map("right", off_right)
+    nm_near  = make_noise_map("near",  off_near)
+    nm_far   = make_noise_map("far",   off_far)
+
+    # 補間器作成
+    # left/right -> (z, x)の順で補間するが、今回は x を固定的に使う or 無視するので
+    # ここでは z 軸を第1, x軸を第2にしておき、(z, x) 順で呼び出す
+    interp_left  = RegularGridInterpolator((gz, gx), nm_left )
+    interp_right = RegularGridInterpolator((gz, gx), nm_right)
+    # near/far は x軸を第1, z軸を第2
+    nm_near_T = nm_near.T
+    nm_far_T  = nm_far.T
+    interp_near = RegularGridInterpolator((gx, gz), nm_near_T)
+    interp_far  = RegularGridInterpolator((gx, gz), nm_far_T)
+
+    # 左辺/右辺のうねり
+    # (z, cx) で呼び出し、x軸は中心付近の適当な値を与えて補間
+    # 本来は x 方向も細かく補間すればもっと精度は出ますが、例として簡単化
+    left_vals  = interp_left (np.stack([z, np.full_like(z, cx)], axis=-1))
+    right_vals = interp_right(np.stack([z, np.full_like(z, cx)], axis=-1))
+    bl = half_side + (left_vals*2 - 1)*amplitude
+    br = half_side + (right_vals*2 - 1)*amplitude
+
+    # 手前/奥は (x, cz)
+    near_vals = interp_near(np.stack([x, np.full_like(x, cz)], axis=-1))
+    far_vals  = interp_far (np.stack([x, np.full_like(x, cz)], axis=-1))
+    bn = half_side + (near_vals*2 - 1)*amplitude
+    bf = half_side + (far_vals *2 - 1)*amplitude
+
+    dl = x - (cx - bl)
+    dr = (cx + br) - x
+    dn = z - (cz - bn)
+    df = (cz + bf) - z
+    md = np.min([dl, dr, dn, df], axis=0)
+
+    inside = (md >= 0)
+    outside = (md < -fade_range)
+    fade_zone = ~(inside | outside)
+
+    ratio = np.zeros_like(md)
+    ratio[fade_zone] = -md[fade_zone] / fade_range
+    keep_prob = 1.0 - ratio
+    fade_mask = (np.random.rand(len(points)) < keep_prob)
+
+    mask = inside | (fade_zone & fade_mask)
+    return points[mask], colors[mask], annotations[mask]
 
 
-def reconstruct_point_cloud(pcd_name, base_directory):
+def reconstruct_point_cloud(pcd_name, base_directory, output_directory):
     # Automatically find camera data
     camera_data = find_camera_data(base_directory)
     if not camera_data:
@@ -293,48 +361,53 @@ def reconstruct_point_cloud(pcd_name, base_directory):
 
     # Generate combined point cloud
     all_points, all_colors, all_annotations = generate_combined_point_cloud(camera_data)
-    all_points, all_colors, all_annotations = fade_point_cloud(
-        all_points, all_colors, all_annotations, no_fade_distance=25.0, fade_start=25, fade_end=50
-    )
     all_points, all_colors, all_annotations = downsample_point_cloud(
-        all_points, all_colors, all_annotations, voxel_size=0.1
+        all_points, all_colors, all_annotations, voxel_size=0.15
     )
+    # all_points, all_colors, all_annotations = fade_point_cloud(
+    #     all_points, all_colors, all_annotations
+    # )
+    # print(f"Reconstructed point cloud has {len(all_points)} points.")
+    
+    if len(all_points) < 150000:
+        raise ValueError("Point cloud is too small. Please try again.")
     # 反転
     all_points[:, 1] = -all_points[:, 1]
     all_points[:, 2] = -all_points[:, 2]
-    unique_annotations = np.unique(all_annotations)
-    set_annotations_val = set(unique_annotations)
-    print(set_annotations_val)
-    annotation_colors = {value: np.random.rand(3) for value in unique_annotations}
-    colored_annotations = np.array([annotation_colors[val] for val in all_annotations])
+    # unique_annotations = np.unique(all_annotations)
+    # set_annotations_val = set(unique_annotations)
+    # print(set_annotations_val)
+    # annotation_colors = {value: np.random.rand(3) for value in unique_annotations}
+    # colored_annotations = np.array([annotation_colors[val] for val in all_annotations])
 
     # Add annotations to point cloud
     pcd = o3d.geometry.PointCloud()
     pcd.points = o3d.utility.Vector3dVector(all_points)
     pcd.colors = o3d.utility.Vector3dVector(all_colors)
     
-    os.mkdir("../dataset_1", exist_ok=True)
+    if not os.path.exists(output_directory):
+        os.mkdir(output_directory)
 
     # Save point cloud
-    output_pcd_path = os.path.join("../dataset_1", pcd_name)
+    output_pcd_path = os.path.join(output_directory, pcd_name)
 
     o3d.io.write_point_cloud(output_pcd_path, pcd)
     # print(f"Saved reconstructed point cloud with annotations to {output_pcd_path}")
 
     # Save the annotations
     annotation_path = os.path.join(
-        "../dataset_1", f"{pcd_name.split('.')[0]}_annotations.npy"
+        output_directory, f"{pcd_name.split('.')[0]}_annotations.npy"
     )
     np.save(annotation_path, all_annotations)
 
     # # Visualize the point cloud
-    o3d.visualization.draw_geometries([pcd])
-    annotated_pcd = o3d.geometry.PointCloud()
-    annotated_pcd.points = o3d.utility.Vector3dVector(all_points)
-    annotated_pcd.colors = o3d.utility.Vector3dVector(colored_annotations)
-    o3d.visualization.draw_geometries([annotated_pcd])
+    # o3d.visualization.draw_geometries([pcd])
+    # annotated_pcd = o3d.geometry.PointCloud()
+    # annotated_pcd.points = o3d.utility.Vector3dVector(all_points)
+    # annotated_pcd.colors = o3d.utility.Vector3dVector(colored_annotations)
+    # o3d.visualization.draw_geometries([annotated_pcd])
 
 
 if __name__ == "__main__":
-    reconstruct_point_cloud("reconstructed_point_cloud_with_annotations.ply", "../data_images/iteration_0")
+    reconstruct_point_cloud("reconstructed_point_cloud_with_annotations.ply", "../data_images/iteration_0", "../dataset")
 

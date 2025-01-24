@@ -13,6 +13,11 @@ def view_point_cloud(pcd_path, annotation_path=None, voxel_size=0.05):
     
     # ボクセルダウンサンプリング
     sampled_pcd = pcd.voxel_down_sample(voxel_size=voxel_size)
+    print(f"Original point cloud has {len(pcd.points)} points.")
+    print(f"Downsampled point cloud has {len(sampled_pcd.points)} points.")
+    # バウンディングボックスを取得して表示
+    bbox = sampled_pcd.get_axis_aligned_bounding_box()
+    print(f"Bounding box: min_bound={bbox.min_bound}, max_bound={bbox.max_bound}")
     
     if annotation_path:
         # アノテーションを読み込む
@@ -20,8 +25,6 @@ def view_point_cloud(pcd_path, annotation_path=None, voxel_size=0.05):
         
         # 元の点群とダウンサンプリングされた点群の対応を見つける
         sampled_points = np.asarray(sampled_pcd.points)
-        print(f"Original point cloud has {len(pcd.points)} points.")
-        print(f"Downsampled point cloud has {len(sampled_points)} points.")
         
         # 最近傍点を探してアノテーションを対応付け
         pcd_tree = o3d.geometry.KDTreeFlann(pcd)
@@ -42,6 +45,6 @@ def view_point_cloud(pcd_path, annotation_path=None, voxel_size=0.05):
     o3d.visualization.draw_geometries([sampled_pcd])
 
 if __name__ == "__main__":
-    pcd_path = "../dataset/pcd_911.ply"
-    annotation_path = "../dataset/pcd_911_annotations.npy"
-    view_point_cloud(pcd_path, annotation_path, voxel_size=0.1)
+    pcd_path = "/Users/okauchiryota/main_desk/UTokyo/doken_pcd/doken_psx_0.files/doken_0.ply"
+    # annotation_path = "../dataset/pcd_911_annotations.npy"
+    view_point_cloud(pcd_path, voxel_size=0.1)

@@ -22,16 +22,18 @@ def annotate_non_inf_pixels(depth_array, rgb_array, annotation_value=1):
     non_inf_mask = ~invalid_mask
 
     # 3. アノテーションマップを作成
-    annotation_map = np.zeros((rgb_array.shape[0], rgb_array.shape[1]), dtype=np.uint8)
+    # annotation_map = np.zeros((rgb_array.shape[0], rgb_array.shape[1]), dtype=np.uint8)
+    # annotation_map[non_inf_mask] = annotation_value
+    annotation_map = np.ones((rgb_array.shape[0], rgb_array.shape[1]), dtype=np.uint8)  # 初期値を1に変更
     annotation_map[non_inf_mask] = annotation_value
 
     # 4. オーバーレイ用画像
     annotated_image = rgb_array.copy()
-    if annotation_value == 1:
+    if annotation_value == 2:
         annotated_image[non_inf_mask] = [255, 0, 0]  # 赤
-    elif annotation_value == 2:
-        annotated_image[non_inf_mask] = [0, 255, 0]
     elif annotation_value == 3:
+        annotated_image[non_inf_mask] = [0, 255, 0]
+    elif annotation_value == 4:
         annotated_image[non_inf_mask] = [0, 0, 255]
 
     return annotation_map, annotated_image
@@ -44,20 +46,20 @@ def process_image(png_file, images_path):
 
     rgb_image = Image.open(png_file).convert("RGB")
     rgb_array = np.array(rgb_image)
-    print(rgb_array.shape)
+    # print(rgb_array.shape)
 
     depth_data = imageio.imread(depth_file, format="EXR-FI")
 
     if depth_data.ndim == 3 and depth_data.shape[2] > 1:
         depth_data = depth_data[:, :, 0]
 
-    annotation_value = 0
+    annotation_value = 1
     if "zx120" in base_name:
-        annotation_value = 1
-    elif "ic120" in base_name:
         annotation_value = 2
-    elif "d37pxi24" in base_name:
+    elif "ic120" in base_name:
         annotation_value = 3
+    elif "d37pxi24" in base_name:
+        annotation_value = 4
     else:
         raise ValueError(f"Unknown object: {base_name}")
 

@@ -8,7 +8,7 @@ import csv
 from .annotate_img import annotate_single_prefab_images
 from .annotate_pcd import reconstruct_point_cloud
 
-def process_directories(base_path):
+def process_directories(base_path, output_dir):
     i = 0
     times = []
     start_time = time.time()  # 全体の開始時間を記録
@@ -22,38 +22,26 @@ def process_directories(base_path):
         
         # annotate_single_prefab_imagesにリトライ機能を追加
         max_retries = 3
+        success = False
         for attempt in range(max_retries):
             try:
                 annotate_single_prefab_images(dir_path)
+                reconstruct_point_cloud(f"pcd_{i}.ply", dir_path, output_dir)
+                success = True
                 break  # 成功したらループを抜ける
             except Exception as e:
-                print(f"Error processing {dir_name} with annotate_single_prefab_images: {e}")
-                if attempt < max_retries - 1:
-                    print(f"Retrying... ({attempt + 1}/{max_retries})")
-                    time.sleep(2)  # リトライ前に少し待つ
-                else:
-                    print(f"Failed to process {dir_name} with annotate_single_prefab_images after {max_retries} attempts.")
-                    raise  # リトライ回数を超えたら例外を再スロー
-        
-        # reconstruct_point_cloudにリトライ機能を追加
-        for attempt in range(max_retries):
-            try:
-                reconstruct_point_cloud(f"pcd_{i}.ply", dir_path)
-                break  # 成功したらループを抜ける
-            except Exception as e:
-                print(f"Error processing {dir_name} with reconstruct_point_cloud: {e}")
-                if attempt < max_retries - 1:
-                    print(f"Retrying... ({attempt + 1}/{max_retries})")
-                    time.sleep(2)  # リトライ前に少し待つ
-                else:
-                    print(f"Failed to process {dir_name} with reconstruct_point_cloud after {max_retries} attempts.")
-                    raise  # リトライ回数を超えたら例外を再スロー
+                print(f"Failed to process {dir_name} on attempt {attempt + 1}. Error: {e}")
 
-        print(f"Processed directory {dir_name}")
-        shutil.rmtree(dir_path)
-        end_time = time.time()
-        times.append(end_time - start_time)  # 全体の経過時間を記録
-        i += 1
+        if success:
+            print(f"Processed directory {dir_name} after {attempt + 1} attempts.")
+            shutil.rmtree(dir_path)
+            end_time = time.time()
+            times.append(end_time - start_time)  # 全体の経過時間を記録
+            i += 1
+        else:
+            print(f"Failed to process {dir_name} after {max_retries} attempts.")
+            error_dir_path = f"{dir_path}_error"
+            os.rename(dir_path, error_dir_path)
 
     plot_times(times)
 
@@ -79,4 +67,5 @@ def plot_times(times):
 
 if __name__ == "__main__":
     base_path = '../data_images'
-    process_directories(base_path)
+    output_dir = '../dataset'
+    process_directories(base_path, output_dir)

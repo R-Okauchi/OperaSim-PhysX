@@ -48,6 +48,16 @@ public class TerrainSunRandomizer : MonoBehaviour
                     yield return new WaitForSeconds(1f);
                 }
             }
+            if (i > 0)
+            {
+                string errorDir = $"data_images/iteration_{i-1}_error";
+                if (Directory.Exists(errorDir))
+                {
+                    Debug.Log($"エラーフォルダが検出されました。再び{i-1}のイテレーションを実行します。");
+                    Directory.Delete(errorDir, true);
+                    i -= 1;
+                }
+            }
             Debug.Log($"=== イテレーション {i} 開始 ===");
 
             // メモリ使用量をチェック
@@ -56,11 +66,13 @@ public class TerrainSunRandomizer : MonoBehaviour
             Debug.Log($"現在のメモリ使用量: {memoryUsage / (1024 * 1024)} MB");
 
             // メモリ使用量が一定量を超えた場合、クールダウンを挟む
-            if (memoryUsage >  2L * 1024 * 1024 * 1024) // 1GBを超えた場合
-            {
-                Debug.Log("メモリ使用量が1GBを超えました。クールダウンを挟みます。");
-                yield return new WaitForSeconds(10f); // 10秒間のクールダウン
-            }
+            // while (memoryUsage > 2L * 1024 * 1024 * 1024) // 1GBを超えた場合
+            // {
+            //     Debug.Log("メモリ使用量が1GBを超えました。クールダウンを挟みます。");
+            //     yield return new WaitForSeconds(10f); // 10秒間のクールダウン
+            //     memoryUsage = SD.Process.GetCurrentProcess().PrivateMemorySize64;
+            //     Debug.Log($"クールダウン後のメモリ使用量: {memoryUsage / (1024 * 1024)} MB");
+            // }
 
             // 1. 既にあるオブジェクトのクリーンアップ
             foreach (var go in spawnedPrefabs)
@@ -101,7 +113,7 @@ public class TerrainSunRandomizer : MonoBehaviour
         // ---- 1. Terrainの生成 ----
         TerrainData terrainData = new TerrainData();
         terrainData.heightmapResolution = 513;
-        terrainData.size = new Vector3(100, 100, 100);
+        terrainData.size = new Vector3(50, 100, 70);
 
         // ---- 1-2. Perlin Noise で適当な起伏を作る ----
         float[,] heights = new float[terrainData.heightmapResolution, terrainData.heightmapResolution];
@@ -259,9 +271,9 @@ public class TerrainSunRandomizer : MonoBehaviour
             for (int attempt = 0; attempt < maxAttempts; attempt++)
             {
                 Vector3 randomPosition = new Vector3(
-                    Random.Range(20, terrainData.size.x - 20),
+                    Random.Range(5, terrainData.size.x - 5),
                     0,
-                    Random.Range(20, terrainData.size.z - 20)
+                    Random.Range(5, terrainData.size.z - 5)
                 );
 
                 float terrainHeight = terrainData.GetHeight(
