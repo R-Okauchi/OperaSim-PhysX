@@ -6,6 +6,7 @@ from PIL import Image
 import imageio.v3 as iio
 import matplotlib.pyplot as plt
 
+
 def load_internal_parameters(file_path):
     """
     Read camera internal parameters from a text file.
@@ -36,11 +37,23 @@ def load_external_parameters(file_path):
         for line in file:
             if "Position" in line:
                 position = np.array(
-                    [float(val) for val in line.split(":")[1].strip().replace("(", "").replace(")", "").split(",")]
+                    [
+                        float(val)
+                        for val in line.split(":")[1]
+                        .strip()
+                        .replace("(", "")
+                        .replace(")", "")
+                        .split(",")
+                    ]
                 )
             elif "Rotation" in line:
                 quaternion = [
-                    float(val) for val in line.split(":")[1].strip().replace("(", "").replace(")", "").split(",")
+                    float(val)
+                    for val in line.split(":")[1]
+                    .strip()
+                    .replace("(", "")
+                    .replace(")", "")
+                    .split(",")
                 ]
                 rotation = R.from_quat(quaternion).as_matrix()
     return {"position": position, "rotation": rotation}
@@ -89,7 +102,12 @@ def generate_point_cloud(depth, color, intrinsics, extrinsics):
         o3d.geometry.PointCloud: The generated point cloud.
     """
     h, w = depth.shape
-    fx, fy, cx, cy = intrinsics["fx"], intrinsics["fy"], intrinsics["cx"], intrinsics["cy"]
+    fx, fy, cx, cy = (
+        intrinsics["fx"],
+        intrinsics["fy"],
+        intrinsics["cx"],
+        intrinsics["cy"],
+    )
     R = extrinsics["rotation"]
     T = extrinsics["position"]
 
@@ -106,7 +124,7 @@ def generate_point_cloud(depth, color, intrinsics, extrinsics):
     mask = depth > 0
     points_camera = points_camera[mask.flatten()]
     colors = color.reshape(-1, 3)[mask.flatten()] / 255.0  # Normalize to [0, 1]
-    
+
     points_camera[:, 1] = -points_camera[:, 1]
     points_camera = points_camera / 15
 
@@ -128,32 +146,52 @@ def find_camera_data(directory):
     grouped_files = {}
 
     for file in files:
-        if not file.startswith("Camera_") or not os.path.isfile(os.path.join(directory, file)):
+        if not file.startswith("Camera_") or not os.path.isfile(
+            os.path.join(directory, file)
+        ):
             continue
-        camera_id = "_".join(file.split("_")[:3])  # Extract Camera identifier (e.g., Camera_0_0)
+        camera_id = "_".join(
+            file.split("_")[:3]
+        )  # Extract Camera identifier (e.g., Camera_0_0)
         camera_id = camera_id.split(".")[0]  # Remove file extension
         if camera_id not in grouped_files:
             grouped_files[camera_id] = []
         grouped_files[camera_id].append(file)
     # Organize files into camera data
     for camera_id, file_list in grouped_files.items():
-        depth_image = next((f for f in file_list if "depth" in f and "noTerrain" not in f), None)
-        color_image = next((f for f in file_list if f.endswith(".png") and "noTerrain" not in f), None)
-        internal_params = next((f for f in file_list if "internal" in f and "noTerrain" not in f), None)
-        external_params = next((f for f in file_list if "external" in f and "noTerrain" not in f), None)
-        zx120_map = next((f for f in file_list if "zx120" in f and "annotation" in f), None)
-        ic120_map = next((f for f in file_list if "ic120" in f and "annotation" in f), None)
-        d37pxi24_map = next((f for f in file_list if "d37pxi24" in f and "annotation" in f), None)
+        depth_image = next(
+            (f for f in file_list if "depth" in f and "noTerrain" not in f), None
+        )
+        color_image = next(
+            (f for f in file_list if f.endswith(".png") and "noTerrain" not in f), None
+        )
+        internal_params = next(
+            (f for f in file_list if "internal" in f and "noTerrain" not in f), None
+        )
+        external_params = next(
+            (f for f in file_list if "external" in f and "noTerrain" not in f), None
+        )
+        zx120_map = next(
+            (f for f in file_list if "zx120" in f and "annotation" in f), None
+        )
+        ic120_map = next(
+            (f for f in file_list if "ic120" in f and "annotation" in f), None
+        )
+        d37pxi24_map = next(
+            (f for f in file_list if "d37pxi24" in f and "annotation" in f), None
+        )
         if depth_image and color_image and internal_params and external_params:
-            camera_data.append({
-                "depth_image": os.path.join(directory, depth_image),
-                "color_image": os.path.join(directory, color_image),
-                "internal_params": os.path.join(directory, internal_params),
-                "external_params": os.path.join(directory, external_params),
-                "zx120_map": os.path.join(directory, zx120_map),
-                "ic120_map": os.path.join(directory, ic120_map),
-                "d37pxi24_map": os.path.join(directory, d37pxi24_map),
-            })
+            camera_data.append(
+                {
+                    "depth_image": os.path.join(directory, depth_image),
+                    "color_image": os.path.join(directory, color_image),
+                    "internal_params": os.path.join(directory, internal_params),
+                    "external_params": os.path.join(directory, external_params),
+                    "zx120_map": os.path.join(directory, zx120_map),
+                    "ic120_map": os.path.join(directory, ic120_map),
+                    "d37pxi24_map": os.path.join(directory, d37pxi24_map),
+                }
+            )
 
     return camera_data
 
@@ -189,10 +227,16 @@ def generate_combined_point_cloud(camera_data):
         intrinsics.update(calculate_focal_length(intrinsics, image_width, image_height))
 
         # Annotation
-        annotation_map = np.load(camera["zx120_map"]) + np.load(camera["ic120_map"]) + np.load(camera["d37pxi24_map"])
-        
+        annotation_map = (
+            np.load(camera["zx120_map"])
+            + np.load(camera["ic120_map"])
+            + np.load(camera["d37pxi24_map"])
+        )
+
         # Generate point cloud for this camera
-        points, colors, mask = generate_point_cloud(depth, color, intrinsics, extrinsics)
+        points, colors, mask = generate_point_cloud(
+            depth, color, intrinsics, extrinsics
+        )
         all_points.append(points)
         all_colors.append(colors)
         all_annotations.append(annotation_map[mask].flatten())
@@ -228,10 +272,11 @@ def downsample_point_cloud(points, colors, annotations=None, voxel_size=0.01):
 
     return downsampled_points, downsampled_colors
 
+
 def main(pcd_name, base_directory):
     # Base directory where camera data is stored
     base_directory = "../data_images/iteration_0"
-    
+
     # Automatically find camera data
     camera_data = find_camera_data(base_directory)
     if not camera_data:

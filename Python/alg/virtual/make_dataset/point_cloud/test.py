@@ -1,6 +1,7 @@
 import open3d as o3d
 import numpy as np
 
+
 def save_and_load_point_cloud(pcd, output_pcd_path):
     # 点群を保存
     o3d.io.write_point_cloud(output_pcd_path, pcd)
@@ -11,6 +12,7 @@ def save_and_load_point_cloud(pcd, output_pcd_path):
     print(f"Loaded point cloud from {output_pcd_path}")
 
     return loaded_pcd
+
 
 if __name__ == "__main__":
     # 例としてランダムな点群を生成

@@ -39,16 +39,27 @@ def load_external_parameters(file_path):
             if "Position" in line:
                 # 括弧を削除して数値に変換
                 position = np.array(
-                    [float(val) for val in line.split(":")[1].strip().replace("(", "").replace(")", "").split(",")]
+                    [
+                        float(val)
+                        for val in line.split(":")[1]
+                        .strip()
+                        .replace("(", "")
+                        .replace(")", "")
+                        .split(",")
+                    ]
                 )
             elif "Rotation" in line:
                 # Quaternionの括弧を削除して数値に変換
                 quaternion = [
-                    float(val) for val in line.split(":")[1].strip().replace("(", "").replace(")", "").split(",")
+                    float(val)
+                    for val in line.split(":")[1]
+                    .strip()
+                    .replace("(", "")
+                    .replace(")", "")
+                    .split(",")
                 ]
                 rotation = R.from_quat(quaternion).as_matrix()
     return {"position": position, "rotation": rotation}
-
 
 
 def calculate_focal_length(intrinsics, width, height):
@@ -94,7 +105,12 @@ def generate_point_cloud(depth, color, intrinsics, extrinsics):
         o3d.geometry.PointCloud: The generated point cloud.
     """
     h, w = depth.shape
-    fx, fy, cx, cy = intrinsics["fx"], intrinsics["fy"], intrinsics["cx"], intrinsics["cy"]
+    fx, fy, cx, cy = (
+        intrinsics["fx"],
+        intrinsics["fy"],
+        intrinsics["cx"],
+        intrinsics["cy"],
+    )
     R = extrinsics["rotation"]
     T = extrinsics["position"]
 
@@ -110,7 +126,6 @@ def generate_point_cloud(depth, color, intrinsics, extrinsics):
     # x = np.where((i - cx) / fx > 0, (i - cx) / fx +depth * math.tan(fov_x_rad / 2) * 100, (i - cx) / fx - depth * math.tan(fov_x_rad / 2) * 100)
     # y = np.where((j - cy) / fy > 0, (j - cy) / fy +depth * math.tan(fov_y_rad / 2) * 100, (j - cy) / fy - depth * math.tan(fov_y_rad / 2) * 100)
     # z = depth * 100
-
 
     # Stack into 3D points in camera space
     points_camera = np.stack((x, y, z), axis=-1).reshape(-1, 3)

@@ -4,6 +4,7 @@ import open3d as o3d
 import os
 import re
 
+
 def read_exr_to_numpy(file_path):
     """
     EXRファイルをNumPy配列として読み込む
@@ -15,6 +16,7 @@ def read_exr_to_numpy(file_path):
         depth_data = depth_data[..., 0]
     return depth_data
 
+
 def read_rgb_to_numpy(file_path):
     """
     RGB画像をNumPy配列として読み込む
@@ -23,6 +25,7 @@ def read_rgb_to_numpy(file_path):
     """
     rgb_data = iio.imread(file_path)
     return rgb_data
+
 
 def parse_camera_params(internal_file, external_file):
     """
@@ -39,9 +42,9 @@ def parse_camera_params(internal_file, external_file):
     near_clip_plane = float(re.search(r"Near Clip Plane: ([\d.]+)", lines[2]).group(1))
     far_clip_plane = float(re.search(r"Far Clip Plane: ([\d.]+)", lines[3]).group(1))
     # cx = 960  # 画像幅の中心 (例: 1920x1080 の場合)
-    cx = 1103/2
+    cx = 1103 / 2
     # cy = 540  # 画像高さの中心 (例: 1920x1080 の場合)
-    cy = 679/2
+    cy = 679 / 2
 
     fx = fy = 1.0 / np.tan(np.deg2rad(fov) / 2.0)
 
@@ -51,7 +54,7 @@ def parse_camera_params(internal_file, external_file):
         lines = f.readlines()
     position = eval(re.search(r"Position: \((.+)\)", lines[0]).group(1))
     rotation = eval(re.search(r"Rotation: \((.+)\)", lines[1]).group(1))
-    
+
     # rontation = [x, y, z, w] として、[w, x, y, z] に変換
     rotation = [rotation[3], rotation[0], rotation[1], rotation[2]]
     # 回転（クォータニオン）から回転行列に変換
@@ -60,6 +63,7 @@ def parse_camera_params(internal_file, external_file):
     extrinsics[:3, 3] = position
 
     return intrinsics, extrinsics
+
 
 def depth_to_point_cloud_with_color(depth_map, rgb_map, intrinsics, extrinsics):
     """
@@ -79,7 +83,7 @@ def depth_to_point_cloud_with_color(depth_map, rgb_map, intrinsics, extrinsics):
     print(f"min depth: {np.min(z_raw)}, max depth: {np.max(z_raw)}")
 
     # マスク: 深度が0の画素を除外
-    valid_mask = (z_raw > 0)
+    valid_mask = z_raw > 0
     z_raw = z_raw[valid_mask]
 
     xx = xx.flatten()[valid_mask]
@@ -88,11 +92,9 @@ def depth_to_point_cloud_with_color(depth_map, rgb_map, intrinsics, extrinsics):
     x = (xx.flatten() - cx) * z / fx
     y = (yy.flatten() - cy) * z / fy
     points_camera = np.vstack((x, y, z)).T
-    
+
     # 反転
     points_camera[:, 1] = -points_camera[:, 1]
-    
-    
 
     # 外部パラメータでワールド座標系に変換˚
     R = extrinsics[:3, :3]
@@ -103,6 +105,7 @@ def depth_to_point_cloud_with_color(depth_map, rgb_map, intrinsics, extrinsics):
     colors = rgb_map.reshape(-1, 3)[valid_mask] / 255.0
 
     return points_world, colors
+
 
 def create_combined_point_cloud(depth_dir, params_dir, voxel_size=0.05):
     """
@@ -134,7 +137,9 @@ def create_combined_point_cloud(depth_dir, params_dir, voxel_size=0.05):
             intrinsics, extrinsics = parse_camera_params(internal_file, external_file)
 
             # 点群を生成
-            points, colors = depth_to_point_cloud_with_color(depth_map, rgb_map, intrinsics, extrinsics)
+            points, colors = depth_to_point_cloud_with_color(
+                depth_map, rgb_map, intrinsics, extrinsics
+            )
             pcd = o3d.geometry.PointCloud()
             pcd.points = o3d.utility.Vector3dVector(points)
             pcd.colors = o3d.utility.Vector3dVector(colors)
@@ -154,10 +159,13 @@ def create_combined_point_cloud(depth_dir, params_dir, voxel_size=0.05):
 
     return downsampled_pcd
 
+
 # メイン処理
 if __name__ == "__main__":
     depth_dir = "../data_images/iteration_0/"  # EXRファイルのディレクトリ
-    params_dir = "../data_images/iteration_0/"  # 内部・外部パラメータが保存されたディレクトリ
+    params_dir = (
+        "../data_images/iteration_0/"  # 内部・外部パラメータが保存されたディレクトリ
+    )
     voxel_size = 0.1  # ダウンサンプル時のボクセルサイズ
 
     # 統合された点群を作成
@@ -166,5 +174,3 @@ if __name__ == "__main__":
     # 点群を保存 & 可視化
     o3d.io.write_point_cloud("combined_point_cloud_downsampled.ply", pcd)
     o3d.visualization.draw_geometries([pcd])
-    
-    

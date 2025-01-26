@@ -133,6 +133,7 @@ GameObject:
   m_Component:
   - component: {fileID: 1524765446}
   - component: {fileID: 1524765445}
+  - component: {fileID: 1524765447}
   m_Layer: 0
   m_Name: GameObject
   m_TagString: Untagged
@@ -147,7 +148,7 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1524765444}
-  m_Enabled: 1
+  m_Enabled: 0
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: c59a42fc8a7844e6a9d3d05c40dd98c4, type: 3}
   m_Name: 
@@ -176,6 +177,38 @@ Transform:
   m_Father: {fileID: 0}
   m_RootOrder: 1
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1524765447
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1524765444}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f8742a3857b8f4d838a60f7ad356ca04, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  terrainLayers:
+  - {fileID: 8574412962073106934, guid: 5169755672341404f8a7023601c051dc, type: 2}
+  - {fileID: 8574412962073106934, guid: 27c57719e9aabba4dab5345cdc3538aa, type: 2}
+  prefabsWithLimit:
+  - prefab: {fileID: 7325873912465180237, guid: 3434f518155e941e199972ea01f10226, type: 3}
+    maxSpawnCount: 2
+  - prefab: {fileID: 3259384588728292577, guid: 00e1a5412b2584397a7a158a83be60f8, type: 3}
+    maxSpawnCount: 2
+  - prefab: {fileID: 8909079616754127425, guid: 81f82c2e8b8b94fc8a51ac7f4f1e2b50, type: 3}
+    maxSpawnCount: 2
+  - prefab: {fileID: 3507992828263263571, guid: 4fbdeb2c300464fb2bb18e83dec4121d, type: 3}
+    maxSpawnCount: 2
+  - prefab: {fileID: 347200012970187777, guid: 7adff04cbd43e4ad69896e6bef931f99, type: 3}
+    maxSpawnCount: 2
+  - prefab: {fileID: 4522809576125631343, guid: ad30485ee4cf74e918f691466ef3df84, type: 3}
+    maxSpawnCount: 2
+  - prefab: {fileID: 7328838796901048702, guid: 2a0ecaa7d6eff4d2eb60726c6ea6e248, type: 3}
+    maxSpawnCount: 10
+  depthToColorMaterial: {fileID: 2100000, guid: cbffae2a1b10b4b06b944b53c1e5ba03, type: 2}
+  numIterations: 1000
 --- !u!1 &1697056248
 GameObject:
   m_ObjectHideFlags: 0

@@ -6,6 +6,7 @@ import imageio
 import numpy as np
 from PIL import Image
 
+
 def annotate_non_inf_pixels(depth_array, rgb_array, annotation_value=1):
     """
     深度に値があるピクセルをオブジェクトとしてアノテーションする。
@@ -24,7 +25,9 @@ def annotate_non_inf_pixels(depth_array, rgb_array, annotation_value=1):
     # 3. アノテーションマップを作成
     # annotation_map = np.zeros((rgb_array.shape[0], rgb_array.shape[1]), dtype=np.uint8)
     # annotation_map[non_inf_mask] = annotation_value
-    annotation_map = np.ones((rgb_array.shape[0], rgb_array.shape[1]), dtype=np.uint8)  # 初期値を1に変更
+    annotation_map = np.ones(
+        (rgb_array.shape[0], rgb_array.shape[1]), dtype=np.uint8
+    )  # 初期値を1に変更
     annotation_map[non_inf_mask] = annotation_value
 
     # 4. オーバーレイ用画像
@@ -37,6 +40,7 @@ def annotate_non_inf_pixels(depth_array, rgb_array, annotation_value=1):
         annotated_image[non_inf_mask] = [0, 0, 255]
 
     return annotation_map, annotated_image
+
 
 def process_image(png_file, images_path):
     base_name = os.path.splitext(os.path.basename(png_file))[0]
@@ -59,7 +63,15 @@ def process_image(png_file, images_path):
     elif "ic120" in base_name:
         annotation_value = 3
     elif "d37pxi24" in base_name:
-        annotation_value = 4
+        annotation_value = 5
+    elif "zx200" in base_name:
+        annotation_value = 7
+    elif "c30r" in base_name:
+        annotation_value = 11
+    elif "scaffold" in base_name:
+        annotation_value = 13
+    elif "cut_cone" in base_name:
+        annotation_value = 17
     else:
         raise ValueError(f"Unknown object: {base_name}")
 
@@ -67,15 +79,12 @@ def process_image(png_file, images_path):
         depth_data, rgb_array, annotation_value
     )
 
-    annotation_map_path = os.path.join(
-        images_path, f"{base_name}_annotation.npy"
-    )
+    annotation_map_path = os.path.join(images_path, f"{base_name}_annotation.npy")
     np.save(annotation_map_path, annotation_map)
 
-    annotated_image_path = os.path.join(
-        images_path, f"{base_name}_annotated.png"
-    )
+    annotated_image_path = os.path.join(images_path, f"{base_name}_annotated.png")
     Image.fromarray(annotated_image).save(annotated_image_path)
+
 
 def annotate_single_prefab_images(images_dir):
     """
@@ -97,6 +106,7 @@ def annotate_single_prefab_images(images_dir):
 
     with ThreadPoolExecutor() as executor:
         executor.map(lambda png_file: process_image(png_file, images_path), png_files)
+
 
 # スクリプトを直接実行する場合
 if __name__ == "__main__":
