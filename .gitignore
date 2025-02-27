@@ -70,3 +70,17 @@ crashlytics-build.properties
 # Temporary auto-generated Android Assets
 /[Aa]ssets/[Ss]treamingAssets/aa.meta
 /[Aa]ssets/[Ss]treamingAssets/aa/*
+
+# Images to make datasets
+data_images/
+
+# python
+__pycache__/
+*.pyc
+*.pyo
+*.venv/
+
+# point cloud data
+*.ply
+dataset/
+dataset_*/
