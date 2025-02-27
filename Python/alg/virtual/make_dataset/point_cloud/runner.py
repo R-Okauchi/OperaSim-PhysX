@@ -10,10 +10,10 @@ from .annotate_pcd import reconstruct_point_cloud
 
 
 def process_directories(base_path, output_dir):
-    i = 193
+    i = 0
     times = []
     start_time = time.time()  # 全体の開始時間を記録
-    while i < 1000:
+    while i < 10000:
         dir_name = f"iteration_{i}"
         dir_path = os.path.join(base_path, dir_name)
         while not os.path.exists(dir_path):

@@ -54,7 +54,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 919132149155446097, guid: 417f494982fbc4befacd93b18cfb4e95, type: 3}
       propertyPath: m_Name
-      value: "\u8DB3\u5834\u6750-1 Variant"
+      value: scaffold
       objectReference: {fileID: 0}
     - target: {fileID: 8623602408337506671, guid: 417f494982fbc4befacd93b18cfb4e95, type: 3}
       propertyPath: m_LocalRotation.w

@@ -132,7 +132,6 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 1524765446}
-  - component: {fileID: 1524765445}
   - component: {fileID: 1524765447}
   m_Layer: 0
   m_Name: GameObject
@@ -141,27 +140,6 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!114 &1524765445
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1524765444}
-  m_Enabled: 0
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: c59a42fc8a7844e6a9d3d05c40dd98c4, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  terrainLayers:
-  - {fileID: 8574412962073106934, guid: 5169755672341404f8a7023601c051dc, type: 2}
-  - {fileID: 8574412962073106934, guid: 27c57719e9aabba4dab5345cdc3538aa, type: 2}
-  prefabs:
-  - {fileID: 6726993588141903020, guid: 5f0163cdccbd84595bf596239e9b931f, type: 3}
-  - {fileID: 3818208765571841882, guid: 277fd3c9351a04508bed10c785dfafd0, type: 3}
-  - {fileID: 7325873912465180237, guid: 3434f518155e941e199972ea01f10226, type: 3}
-  depthToColorMaterial: {fileID: 2100000, guid: cbffae2a1b10b4b06b944b53c1e5ba03, type: 2}
-  numIterations: 1000
 --- !u!4 &1524765446
 Transform:
   m_ObjectHideFlags: 0
@@ -190,23 +168,32 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   terrainLayers:
-  - {fileID: 8574412962073106934, guid: 5169755672341404f8a7023601c051dc, type: 2}
-  - {fileID: 8574412962073106934, guid: 27c57719e9aabba4dab5345cdc3538aa, type: 2}
+  - {fileID: 8574412962073106934, guid: 86995b675db1a4a41bca511ecd43cd22, type: 2}
+  - {fileID: 8574412962073106934, guid: 29339fa9db149463ea015bbe7f13554e, type: 2}
+  - {fileID: 8574412962073106934, guid: 6ae4d236f0e704eb0a8306ceb389ef28, type: 2}
+  - {fileID: 8574412962073106934, guid: bdc2bfaf8d3de490ca4ae8531907aacc, type: 2}
   prefabsWithLimit:
   - prefab: {fileID: 7325873912465180237, guid: 3434f518155e941e199972ea01f10226, type: 3}
     maxSpawnCount: 2
+    overlapMargin: 0.1
   - prefab: {fileID: 3259384588728292577, guid: 00e1a5412b2584397a7a158a83be60f8, type: 3}
     maxSpawnCount: 2
+    overlapMargin: 0.1
   - prefab: {fileID: 8909079616754127425, guid: 81f82c2e8b8b94fc8a51ac7f4f1e2b50, type: 3}
     maxSpawnCount: 2
+    overlapMargin: 0.1
   - prefab: {fileID: 3507992828263263571, guid: 4fbdeb2c300464fb2bb18e83dec4121d, type: 3}
     maxSpawnCount: 2
+    overlapMargin: 0.1
   - prefab: {fileID: 347200012970187777, guid: 7adff04cbd43e4ad69896e6bef931f99, type: 3}
     maxSpawnCount: 2
+    overlapMargin: 0.1
   - prefab: {fileID: 4522809576125631343, guid: ad30485ee4cf74e918f691466ef3df84, type: 3}
     maxSpawnCount: 2
+    overlapMargin: 0.1
   - prefab: {fileID: 7328838796901048702, guid: 2a0ecaa7d6eff4d2eb60726c6ea6e248, type: 3}
-    maxSpawnCount: 10
+    maxSpawnCount: 15
+    overlapMargin: 0.1
   depthToColorMaterial: {fileID: 2100000, guid: cbffae2a1b10b4b06b944b53c1e5ba03, type: 2}
   numIterations: 1000
 --- !u!1 &1697056248

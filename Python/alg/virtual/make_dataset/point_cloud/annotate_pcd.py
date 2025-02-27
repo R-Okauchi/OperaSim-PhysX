@@ -441,11 +441,21 @@ def reconstruct_point_cloud(pcd_name, base_directory, output_directory):
     # 反転
     all_points[:, 1] = -all_points[:, 1]
     all_points[:, 2] = -all_points[:, 2]
-    # unique_annotations = np.unique(all_annotations)
-    # set_annotations_val = set(unique_annotations)
-    # print(set_annotations_val)
+    unique_annotations = np.unique(all_annotations)
+    set_annotations_val = set(unique_annotations)
+    print(set_annotations_val)
     # annotation_colors = {value: np.random.rand(3) for value in unique_annotations}
-    # colored_annotations = np.array([annotation_colors[val] for val in all_annotations])
+    annotation_colors = {
+                0: np.array([0.5, 0.5, 0.5]),
+                1: np.array([1, 0, 0]),
+                2: np.array([0, 1, 0]),
+                3: np.array([0, 0, 1]),
+                4: np.array([0.5, 0.5, 0]),
+                5: np.array([1, 0, 1]),
+                6: np.array([0, 1, 1]),
+                7: np.array([1, 1, 0]),
+            }
+    colored_annotations = np.array([annotation_colors[val] for val in all_annotations])
 
     # Add annotations to point cloud
     pcd = o3d.geometry.PointCloud()
@@ -469,10 +479,10 @@ def reconstruct_point_cloud(pcd_name, base_directory, output_directory):
 
     # # Visualize the point cloud
     # o3d.visualization.draw_geometries([pcd])
-    # annotated_pcd = o3d.geometry.PointCloud()
-    # annotated_pcd.points = o3d.utility.Vector3dVector(all_points)
-    # annotated_pcd.colors = o3d.utility.Vector3dVector(colored_annotations)
-    # o3d.visualization.draw_geometries([annotated_pcd])
+    annotated_pcd = o3d.geometry.PointCloud()
+    annotated_pcd.points = o3d.utility.Vector3dVector(all_points)
+    annotated_pcd.colors = o3d.utility.Vector3dVector(colored_annotations)
+    o3d.visualization.draw_geometries([annotated_pcd])
 
 
 if __name__ == "__main__":

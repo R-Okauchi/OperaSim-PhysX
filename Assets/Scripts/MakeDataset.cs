@@ -18,13 +18,7 @@ public class MakeDataset : MonoBehaviour
 {
     // ▼ ここを修正：候補となる TerrainLayer を大量に登録しておく
     [Header("TerrainLayer 候補をすべて登録")]
-    [SerializeField] private TerrainLayer[] allTerrainLayers;
-
-    [Header("TerrainLayer のランダム選択数")]
-    [Tooltip("1回の生成で選ぶ最小枚数")]
-    [SerializeField] private int minLayersToUse = 2;
-    [Tooltip("1回の生成で選ぶ最大枚数")]
-    [SerializeField] private int maxLayersToUse = 4;
+    [SerializeField] private TerrainLayer[] terrainLayers;
 
     [Header("Prefab 設定 (上限付き)")]
     public List<PrefabSpawnInfo> prefabsWithLimit;
@@ -42,6 +36,7 @@ public class MakeDataset : MonoBehaviour
     private Dictionary<GameObject, List<GameObject>> spawnedPrefabInstances
         = new Dictionary<GameObject, List<GameObject>>();
 
+    [SerializeField] private int startIteration = 0;
     [SerializeField] private int numIterations = 1000;
     private List<Camera> cameras = new List<Camera>();
 
@@ -59,16 +54,18 @@ public class MakeDataset : MonoBehaviour
     /// </summary>
     private IEnumerator RunMultipleIterations()
     {
-        for (int i = 0; i < numIterations; i++)
+        for (int i = startIteration; i < numIterations; i++)
         {
             // 前回のイテレーションフォルダが消えるまで待機する等、不要なら削除可
+            Time.timeScale = 0f;
             if (i > 0)
             {
                 string prevDir = $"data_images/iteration_{i-1}";
                 while (Directory.Exists(prevDir))
                 {
                     Debug.Log($"前のイテレーションフォルダ {prevDir} がまだ存在します。削除されるまで待機します。");
-                    yield return new WaitForSeconds(1f);
+                    // yield return new WaitForSeconds(1f);
+                    yield return new WaitForSecondsRealtime(1f);
                 }
             }
             if (i > 0)
@@ -82,6 +79,7 @@ public class MakeDataset : MonoBehaviour
                 }
             }
             Debug.Log($"=== イテレーション {i} 開始 ===");
+            Time.timeScale = 1f;
 
             // メモリ使用量をチェック (お好みで)
             SD.Process currentProcess = SD.Process.GetCurrentProcess();
@@ -151,7 +149,7 @@ public class MakeDataset : MonoBehaviour
             int plateauY = Random.Range(0, terrainData.heightmapResolution);
             int plateauWidth = Random.Range(30, 100);
             int plateauHeight = Random.Range(30, 100);
-            float plateauMaxHeight = 0.05f;
+            float plateauMaxHeight = 0.03f;
 
             for (int y = plateauY - plateauHeight; y < plateauY + plateauHeight && y < terrainData.heightmapResolution; y++)
             {
@@ -170,8 +168,18 @@ public class MakeDataset : MonoBehaviour
         }
         terrainData.SetHeights(0, 0, heights);
 
-        // ---- 2. ランダムな TerrainLayer セットを TerrainData に登録 ----
-        SetupRandomTerrainLayers(terrainData);
+        // ---- 2. TerrainLayer をランダムに2つ選んで、TerrainData に登録 ----
+        // ここが変更ポイント。ランダムで2枚選んで設定します。
+        TerrainLayer[] chosenLayers = ChooseRandomLayers(2);
+        if (chosenLayers != null && chosenLayers.Length == 2)
+        {
+            terrainData.terrainLayers = chosenLayers;
+        }
+        else
+        {
+            // 万一、2つ選べなかったらそのまま指定しておく
+            terrainData.terrainLayers = terrainLayers;
+        }
 
         // ---- 3. Terrain オブジェクトを生成 ----
         GameObject terrainGO = Terrain.CreateTerrainGameObject(terrainData);
@@ -196,86 +204,79 @@ public class MakeDataset : MonoBehaviour
     }
 
     /// <summary>
-    /// (1) allTerrainLayers からランダムな数だけレイヤーを選んで
-    /// (2) terrainData.terrainLayers にセットする
+    /// terrainLayers の中からランダムで指定数 (count) の TerrainLayer を重複なく取得
     /// </summary>
-    private void SetupRandomTerrainLayers(TerrainData terrainData)
+    private TerrainLayer[] ChooseRandomLayers(int count)
     {
-        if (allTerrainLayers == null || allTerrainLayers.Length == 0)
+        if (terrainLayers == null || terrainLayers.Length < count)
         {
-            Debug.LogWarning("TerrainLayer の候補が設定されていません。");
-            return;
+            Debug.LogWarning("ランダムに選ぶだけの TerrainLayer がありません。");
+            return null;
         }
 
-        // 使うレイヤー枚数をランダムに決定
-        int layerCountToUse = Random.Range(minLayersToUse, maxLayersToUse + 1);
-
-        // 重複を避けたい場合は Shuffle & Take
-        List<TerrainLayer> shuffled = new List<TerrainLayer>(allTerrainLayers);
-        // ランダム順にシャッフル
-        for (int i = 0; i < shuffled.Count; i++)
+        // ランダム選択したいので、一度インデックスをシャッフルする
+        List<int> indices = new List<int>();
+        for (int i = 0; i < terrainLayers.Length; i++)
         {
-            int r = Random.Range(i, shuffled.Count);
-            var tmp = shuffled[i];
-            shuffled[i] = shuffled[r];
-            shuffled[r] = tmp;
+            indices.Add(i);
         }
-        // 先頭から layerCountToUse 枚を選ぶ
-        List<TerrainLayer> selectedLayers = new List<TerrainLayer>();
-        for (int i = 0; i < layerCountToUse; i++)
+        // フィッシャー・イェーツ (Knuth shuffle) とか簡易的に
+        for (int i = 0; i < indices.Count; i++)
         {
-            selectedLayers.Add(shuffled[i]);
+            int rnd = Random.Range(i, indices.Count);
+            int tmp = indices[i];
+            indices[i] = indices[rnd];
+            indices[rnd] = tmp;
         }
 
-        // 選択したレイヤーを TerrainData に登録
-        terrainData.terrainLayers = selectedLayers.ToArray();
+        // 先頭から count 個だけ TerrainLayer を取得
+        TerrainLayer[] result = new TerrainLayer[count];
+        for (int i = 0; i < count; i++)
+        {
+            result[i] = terrainLayers[indices[i]];
+        }
+
+        return result;
     }
 
     /// <summary>
-    /// TerrainData のアルファマップを「複数レイヤー」向けにノイズやランダムで塗り分ける
+    /// TerrainData のアルファマップをランダムに塗り分ける例
     /// </summary>
     private void ApplyRandomAlphaMap(TerrainData terrainData)
     {
-        if (terrainData.terrainLayers == null || terrainData.terrainLayers.Length == 0) return;
+        // terrainData.terrainLayers が、先ほど選んだ2つになっている想定
+        if (terrainData.terrainLayers == null || terrainData.terrainLayers.Length < 2)
+        {
+            Debug.LogWarning("適用できる TerrainLayer が2つ以上ありません。");
+            return;
+        }
 
         int alphaWidth = terrainData.alphamapWidth;
         int alphaHeight = terrainData.alphamapHeight;
-        int layerCount = terrainData.alphamapLayers;
+        int layerCount = terrainData.alphamapLayers; // 今回は 2 になっているはず
 
         float[,,] alphaMap = new float[alphaHeight, alphaWidth, layerCount];
-
-        // ノイズスケールをランダム化するなどお好みで
-        float noiseScale = Random.Range(0.003f, 0.01f);
-        float noiseOffsetX = Random.Range(0f, 100f);
-        float noiseOffsetY = Random.Range(0f, 100f);
 
         for (int y = 0; y < alphaHeight; y++)
         {
             for (int x = 0; x < alphaWidth; x++)
             {
-                // 各レイヤーごとにノイズ値を取得
-                float total = 0f;
-                float[] noiseValues = new float[layerCount];
-
+                // デフォルトはレイヤー0のみ 100%
                 for (int l = 0; l < layerCount; l++)
                 {
-                    // レイヤー毎にちょっとノイズ座標をずらすテクニック
-                    float nx = (x + noiseOffsetX + l * 13.4f) * noiseScale;
-                    float ny = (y + noiseOffsetY + l * 7.9f) * noiseScale;
-
-                    float val = Mathf.PerlinNoise(nx, ny);
-                    // 0～1のままだと重なりが少ないので、多少パラメータ調整可
-                    noiseValues[l] = Mathf.Pow(val, 1.2f); 
-                    total += noiseValues[l];
+                    alphaMap[y, x, l] = 0f;
                 }
+                alphaMap[y, x, 0] = 1f;
 
-                // 合計が0なら全部0に…は避けたいので一応対策
-                if (total < 0.0001f) total = 0.0001f;
-
-                // 正規化して書き込み
-                for (int l = 0; l < layerCount; l++)
+                // ノイズによってレイヤー1を混ぜる (下記は単純にlayer0, layer1の2枚で塗り分け例)
+                float noise = Mathf.PerlinNoise(x * 0.005f, y * 0.005f);
+                if (noise > 0.3f)
                 {
-                    alphaMap[y, x, l] = noiseValues[l] / total;
+                    float mixRatio = (noise - 0.5f) * 2f; // 0 ~ 1
+                    float layer1Amount = 1.0f * mixRatio;
+                    float layer0Amount = 1f - layer1Amount;
+                    alphaMap[y, x, 0] = layer0Amount;
+                    alphaMap[y, x, 1] = layer1Amount;
                 }
             }
         }
@@ -428,10 +429,10 @@ public class MakeDataset : MonoBehaviour
                     }
                 }
 
-                if (!placed)
-                {
-                    Debug.LogWarning($"{info.prefab.name} の配置（インスタンス {instanceIndex + 1}）に失敗しました。");
-                }
+                // if (!placed)
+                // {
+                //     Debug.LogWarning($"{info.prefab.name} の配置（インスタンス {instanceIndex + 1}）に失敗しました。");
+                // }
             }
         }
     }

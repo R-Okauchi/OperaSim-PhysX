@@ -69,8 +69,8 @@ def view_point_cloud(pcd_path, annotation_path=None, n_samples=250000):
 
 if __name__ == "__main__":
     # pcd_path = "/Users/okauchiryota/main_desk/UTokyo/doken_pcd/doken_psx_0.files/doken_0.ply"
-    pcd_path = "../dataset/pcd_951.ply"
-    annotation_path = "../dataset/pcd_951_annotations.npy"
+    pcd_path = "../dataset/reconstructed_point_cloud_with_annotations.ply"
+    annotation_path = "../dataset/reconstructed_point_cloud_with_annotations_annotations.npy"
     view_point_cloud(pcd_path, annotation_path)
 
-    # view_point_cloud(pcd_path)
+    view_point_cloud(pcd_path)

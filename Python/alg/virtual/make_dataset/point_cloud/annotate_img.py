@@ -36,7 +36,7 @@ def annotate_non_inf_pixels(depth_array, rgb_array, annotation_value=1):
         annotated_image[non_inf_mask] = [255, 0, 0]  # 赤
     elif annotation_value == 3:
         annotated_image[non_inf_mask] = [0, 255, 0]
-    elif annotation_value == 4:
+    elif annotation_value == 5:
         annotated_image[non_inf_mask] = [0, 0, 255]
 
     return annotation_map, annotated_image

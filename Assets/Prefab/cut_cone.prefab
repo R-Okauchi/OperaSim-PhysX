@@ -54,8 +54,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 919132149155446097, guid: 37433ee33c4bd4c4a845efa3d4d77268, type: 3}
       propertyPath: m_Name
-      value: "3D_02\u30AB\u30C3\u30C8\u30B3\u30FC\u30F3\u7D20\u6750\uFF08\u5358\u8272\uFF09
-        Variant"
+      value: cut_cone
       objectReference: {fileID: 0}
     - target: {fileID: 8623602408337506671, guid: 37433ee33c4bd4c4a845efa3d4d77268, type: 3}
       propertyPath: m_LocalRotation.w
@@ -74,7 +73,10 @@ PrefabInstance:
       value: -0.05379795
       objectReference: {fileID: 0}
     m_RemovedComponents: []
-    m_RemovedGameObjects: []
+    m_RemovedGameObjects:
+    - {fileID: 2672078074494150854, guid: 37433ee33c4bd4c4a845efa3d4d77268, type: 3}
+    - {fileID: 1565645608089917892, guid: 37433ee33c4bd4c4a845efa3d4d77268, type: 3}
+    - {fileID: -7481486674577652546, guid: 37433ee33c4bd4c4a845efa3d4d77268, type: 3}
     m_AddedGameObjects: []
     m_AddedComponents:
     - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: 37433ee33c4bd4c4a845efa3d4d77268, type: 3}
