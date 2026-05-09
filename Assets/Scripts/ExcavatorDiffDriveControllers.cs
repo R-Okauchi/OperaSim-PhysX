@@ -57,8 +57,13 @@ public class ExcavatorDiffDriveController : DiffDriveController
                     break;
 
                 case SpeedPreset.rabbit:
-                    maxLinearVelocity = turtleMaxLinearVelocity;
-                    maxAngularVelocity = turtleMaxAngularVelocity;
+                    // Phase 0 (Path-tracking refactor): pre-fix copy-paste
+                    // bug — both branches assigned ``turtle*`` values, so
+                    // selecting ``rabbit`` had no effect on the runtime
+                    // caps. Fixed to read the rabbit-side fields. This is
+                    // a permanent fix, not a refactor-debt patch.
+                    maxLinearVelocity = rabbitMaxLinearVelocity;
+                    maxAngularVelocity = rabbitMaxAngularVelocity;
                     break;
             }
         }
