@@ -82,6 +82,16 @@ public class DiffDriveController : MonoBehaviour
     [Tooltip("車輪を静止する際に用いられるブレーキトルク")]
     public float brakeTorque = 10000.0F;
 
+    [Tooltip("ブレーキ動作の閾値 (m/s). |leftVelCmd| / |rightVelCmd| が " +
+        "この値より小さい場合、PID 出力ではなく brakeTorque を適用して " +
+        "車輪を静止させる. " +
+        "Phase 2-D (path-tracking refactor, issue #14): 旧来の hardcoded " +
+        "0.001 m/s では低速 cmd の周辺で PID 出力と brake torque が交互に " +
+        "切り替わり bang-bang スイッチングが発生していた. 0.01 m/s が新 " +
+        "default. 0.05 まで上げると低速 cmd の追従そのものを犠牲に振動を " +
+        "完全抑制する. 各機体 prefab で site の挙動に応じて調整する.")]
+    public double brakeDeadbandMps = 0.01;
+
     [Tooltip("cmd_velコマンドで指定可能な最大速度(m/s)")]
     public double maxLinearVelocity = 3.00;  // unit is m/sec
 
@@ -255,11 +265,17 @@ public class DiffDriveController : MonoBehaviour
 
         /* Set targetVelocity in xDrive in wheels */
         var ts = TimeSpan.FromSeconds(deltaTime);
+        // Phase 2-D (issue #14): brake dead-band moved from a
+        // hardcoded 0.001 m/s to the Inspector-exposed
+        // ``brakeDeadbandMps`` field. Default raised to 0.01 m/s
+        // — 10× the legacy threshold so low-speed PID output
+        // doesn't fight the brake torque on every PhysX tick.
+        // Each prefab can dial the value per site / machine.
         for (var i = 0; i < leftWheelColliders.Count; i++) {
             var left = leftWheelColliders[i];
             var pid = leftWheelControllers[i];
             var v = (float)pid.PID_iterate(leftVelCmd, leftVelMes, ts);
-            if (Math.Abs(leftVelCmd) < 0.001)
+            if (Math.Abs(leftVelCmd) < brakeDeadbandMps)
             {
                 left.brakeTorque = brakeTorque;
                 left.motorTorque = 0.0F;
@@ -276,7 +292,7 @@ public class DiffDriveController : MonoBehaviour
             var right = rightWheelColliders[i];
             var pid = rightWheelControllers[i];
             var v = (float)pid.PID_iterate(rightVelCmd, rightVelMes, ts);
-            if (Math.Abs(rightVelCmd) < 0.001)
+            if (Math.Abs(rightVelCmd) < brakeDeadbandMps)
             {
                 right.brakeTorque = brakeTorque;
                 right.motorTorque = 0.0F;

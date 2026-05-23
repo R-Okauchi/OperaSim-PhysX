@@ -1,0 +1,12 @@
+# Phase 1e-2 (path-tracking refactor): the .cs files in Runtime/ are
+# ``buf generate`` artefacts, not hand-written code. They land here
+# via the rsync step in Runtime/README.md, but they live canonically
+# in cap-spec/gen/csharp/ on the cap repo side and should NOT be
+# committed to OperaSim-PhysX (that would create a sync drift risk
+# the moment cap-spec/proto changes).
+#
+# What stays in git: package.json + Runtime/README.md + this
+# .gitignore. The rsync step is the contract; Unity treats the
+# package as embedded local but the .cs payload is regenerated.
+Runtime/*.cs
+Runtime/*.cs.meta

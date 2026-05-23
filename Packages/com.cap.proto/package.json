@@ -1,0 +1,16 @@
+{
+  "name": "com.cap.proto",
+  "version": "0.1.0",
+  "displayName": "CAP Proto Bindings",
+  "description": "Auto-generated C# protobuf bindings from cap-spec/proto/cap/v0/*.proto (Phase 1 path-tracking refactor SSOT). Imports Google.Protobuf at runtime; install the NuGet 'Google.Protobuf' package via NuGet for Unity (https://github.com/GlitchEnzo/NuGetForUnity) before this package compiles. Sync .cs files from ../../../cap/cap-spec/gen/csharp/ after every 'buf generate'; see Runtime/README.md for the rsync step.",
+  "unity": "2021.3",
+  "dependencies": {},
+  "samples": [],
+  "keywords": [
+    "proto",
+    "protobuf",
+    "cap",
+    "ssot",
+    "path-tracking-refactor"
+  ]
+}

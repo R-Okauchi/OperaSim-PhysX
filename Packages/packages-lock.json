@@ -7,6 +7,12 @@
       "dependencies": {},
       "url": "https://packages.unity.com"
     },
+    "com.cap.proto": {
+      "version": "file:com.cap.proto",
+      "depth": 0,
+      "source": "embedded",
+      "dependencies": {}
+    },
     "com.frj.unity-sensors": {
       "version": "https://github.com/Field-Robotics-Japan/UnitySensors.git?path=/Assets/UnitySensors#master",
       "depth": 0,
