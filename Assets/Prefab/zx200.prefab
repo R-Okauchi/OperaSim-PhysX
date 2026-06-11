@@ -9072,15 +9072,15 @@ ArticulationBody:
   m_AnchorRotation: {x: 0, y: 0, z: -0.7071068, w: 0.7071068}
   m_MatchAnchors: 1
   m_ArticulationJointType: 2
-  m_LinearX: 0
+  m_LinearX: 1
   m_LinearY: 0
   m_LinearZ: 0
   m_SwingY: 2
   m_SwingZ: 2
-  m_Twist: 2
+  m_Twist: 1
   m_XDrive:
-    lowerLimit: 0
-    upperLimit: 0
+    lowerLimit: -180
+    upperLimit: 180
     stiffness: 100000000
     damping: 100000000
     forceLimit: 68000
