@@ -26,7 +26,7 @@ ROS (x fwd, y left, z up; rpy deg) → Unity local position `(-y, z, x)`, euler 
 Pod tilt sign must be verified in P0 (the JSON keeps the ROS values so the tool can be corrected without touching cap).
 
 ## Manual steps
-- Assign the scene `GeoCoordinateSystem` to each `kit_gnss_*` `GNSSSensor` (scene object, cannot live in a prefab).
+- GNSS: `CapKitGeoOrigin` on `kit_hub` binds the `kit_gnss_*` `GNSSSensor`s at runtime to the scene `GeoCoordinateSystem`, or creates `CapKitGeoOrigin` at the Unity world origin from `perception.site_origin_llh` (no manual scene step).
 - UnitySensors serialized fields touched: `LiDARSensor._scanPattern/_pointsNumPerScan/_minRange/_maxRange/_gaussianNoiseSigma`,
   `UnitySensor._frequency`, `RosMsgPublisher._frequency/_topicName/_serializer._header._frame_id`. Re-check after a package upgrade.
 - Known limits: UnitySensors IMU has no noise model and publishes world-frame acceleration; GNSS has zero covariance;

@@ -14883,6 +14883,7 @@ GameObject:
   - component: {fileID: 1505570152018090693}
   - component: {fileID: 1568942141104168128}
   - component: {fileID: 2527028067234240054}
+  - component: {fileID: 1477338836080402973}
   m_Layer: 0
   m_Name: kit_hub
   m_TagString: Untagged
@@ -14956,6 +14957,21 @@ MonoBehaviour:
   frameID: map
   topicName: /zx120/kit/gnss/heading
   publishMessageInterval: 0.2
+--- !u!114 &1477338836080402973
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5378050072160213785}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 08461e78262b34be5acfb71afc934991, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  latitude: 36.073406033
+  longitude: 140.041676353
+  altitude: 68.2
 --- !u!1 &5385271466530713758
 GameObject:
   m_ObjectHideFlags: 0

@@ -12,6 +12,7 @@ namespace CapKit.Editor
         public const string Path = "Assets/CAP/sensor_rig.json";
         public string schema_version;
         public Machine[] machines;
+        public Perception perception;
 
         public static CapKitContract Load()
         {
@@ -26,6 +27,12 @@ namespace CapKit.Editor
                 Require(ids.Add(machine.machine_id), "Duplicate machine_id: " + machine.machine_id);
             }
             return contract;
+        }
+
+        [Serializable] internal sealed class Perception
+        {
+            public double[] site_origin_llh;   // [lat, lon, alt]; null when the deployment does not define a site origin
+            public string vertical_datum;
         }
 
         [Serializable] internal sealed class Machine

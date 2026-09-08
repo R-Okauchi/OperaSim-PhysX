@@ -5,9 +5,12 @@
         "OperaSimPhysXAssembly",
         "UnitySensorsRuntime",
         "UnitySensorsROSRuntime",
-        "Unity.Mathematics"
+        "Unity.Mathematics",
+        "Unity.Robotics.ROSTCPConnector"
     ],
-    "includePlatforms": ["Editor"],
+    "includePlatforms": [
+        "Editor"
+    ],
     "excludePlatforms": [],
     "allowUnsafeCode": false,
     "overrideReferences": false,

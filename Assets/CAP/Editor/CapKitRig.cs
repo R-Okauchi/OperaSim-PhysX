@@ -68,7 +68,7 @@ namespace CapKit.Editor
                 GameObject root = PrefabUtility.LoadPrefabContents(path);
                 try
                 {
-                    int devices = ApplyMachine(root, machine, report);
+                    int devices = ApplyMachine(root, machine, contract.perception, report);
                     PrefabUtility.SaveAsPrefabAsset(root, path);
                     report.Info(machine.machine_id + ": kit applied (" + machine.sensors.Length + " frames, " + devices + " devices).");
                 }
@@ -77,7 +77,7 @@ namespace CapKit.Editor
             }
         }
 
-        private static int ApplyMachine(GameObject root, CapKitContract.Machine m, Report report)
+        private static int ApplyMachine(GameObject root, CapKitContract.Machine m, CapKitContract.Perception perception, Report report)
         {
             var keep = new HashSet<GameObject>();
             Transform hubLink = CapKitRigObjects.FindLink(root, m.hub_link);
@@ -103,8 +103,15 @@ namespace CapKit.Editor
                 heading.frameID = "map";
                 heading.publishMessageInterval = 0.2f; // 5 Hz moving-base rate
                 EditorUtility.SetDirty(heading);
-                report.Warn(m.machine_id + ": GNSSSensor needs a scene GeoCoordinateSystem assigned on the kit_gnss_* sensors " +
-                            "(scene object; cannot be stored in the prefab). Heading is the hub world yaw, not a two-antenna solution.");
+                // GNSSSensor needs a world-fixed GeoCoordinateSystem, which a prefab cannot reference; the runtime
+                // binder on kit_hub finds the scene's or creates one at the Unity world origin (site_origin_llh).
+                var geo = CapKitRigObjects.Component<CapKitGeoOrigin>(hub.gameObject);
+                double[] llh = perception != null ? perception.site_origin_llh : null;
+                if (llh != null && llh.Length == 3) { geo.latitude = llh[0]; geo.longitude = llh[1]; geo.altitude = llh[2]; }
+                EditorUtility.SetDirty(geo);
+                report.Info(m.machine_id + ": kit GNSS bound at runtime by CapKitGeoOrigin" +
+                            (llh != null && llh.Length == 3 ? " (site_origin_llh from contract)" : " (default origin)") +
+                            ". Heading is the hub world yaw, not a two-antenna solution.");
             }
 
             foreach (var s in m.sensors)
