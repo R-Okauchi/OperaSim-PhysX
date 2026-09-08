@@ -84,7 +84,7 @@ Transform:
   - {fileID: 2812718643384108903}
   - {fileID: 8557757521421646138}
   m_Father: {fileID: 0}
-  m_RootOrder: 9
+  m_RootOrder: 0
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!114 &7003991976069490379
 MonoBehaviour:
@@ -136,6 +136,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: de755eb9608519242b24f7ffc65aad35, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  EnableVWBehaviorMode: 1
+  VWDecelFactor: 1
+  VWRatioFactor: 0.9
   leftWheels:
   - {fileID: 5212802904484812348}
   - {fileID: 1159842441918967409}
@@ -250,6 +253,96 @@ FixedJoint:
   m_EnablePreprocessing: 1
   m_MassScale: 1
   m_ConnectedMassScale: 50
+--- !u!1 &118677175758732521
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 3879607505152304199}
+  - component: {fileID: 2306381966498915888}
+  - component: {fileID: 5278456374059316648}
+  - component: {fileID: 4453045462483053998}
+  m_Layer: 0
+  m_Name: kit_gnss_a
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &3879607505152304199
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 118677175758732521}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0.75}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 2688993493146975871}
+  m_RootOrder: -1
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &2306381966498915888
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 118677175758732521}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1709f4f5f5ff64bdcaee5013dc0a7c2e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  sensorId: gnss_a
+  model: zed_f9p
+  populated: 1
+  topic: /mst110cr/kit/gnss/fix
+  frameId: mst110cr/kit_gnss_a
+  managedByCapKit: 1
+  sensorInstance: {fileID: 0}
+--- !u!114 &5278456374059316648
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 118677175758732521}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 17bfcf824667ca741a28c3d10baed4f7, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  _frequency: 5
+  _coordinateSystem: {fileID: 0}
+  _coordinate:
+    latitude: 0
+    longitude: 0
+    altitude: 0
+--- !u!114 &4453045462483053998
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 118677175758732521}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c11ec5602b9e12544b78d1d2a4bdd5c6, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  _frequency: 5
+  _topicName: /mst110cr/kit/gnss/fix
+  _serializer:
+    _header:
+      _frame_id: mst110cr/kit_gnss_a
+    _status: 1
+    _service: 0
 --- !u!1 &239930177732466078
 GameObject:
   m_ObjectHideFlags: 0
@@ -296,6 +389,91 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   geometryType: 3
+--- !u!1 &270163486944745970
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 2688993493146975871}
+  - component: {fileID: 3971148712439764334}
+  - component: {fileID: 8002834747226006293}
+  - component: {fileID: 1518566673681300529}
+  m_Layer: 0
+  m_Name: kit_hub
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &2688993493146975871
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 270163486944745970}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: -0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children:
+  - {fileID: 3879607505152304199}
+  - {fileID: 2418956196230301849}
+  m_Father: {fileID: 2274592329619372075}
+  m_RootOrder: -1
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &3971148712439764334
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 270163486944745970}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1709f4f5f5ff64bdcaee5013dc0a7c2e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  sensorId: hub
+  model: kit_hub
+  populated: 1
+  topic: /mst110cr/kit/odom
+  frameId: mst110cr/kit_hub
+  managedByCapKit: 1
+  sensorInstance: {fileID: 0}
+--- !u!114 &8002834747226006293
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 270163486944745970}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 15cc6f5a718578648ba928b41145c438, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  topicName: /mst110cr/kit/odom
+  childFrameName: mst110cr/kit_hub
+  publishMessageInterval: 0.02
+--- !u!114 &1518566673681300529
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 270163486944745970}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 466ba427a73375f4bb5ad17b4be60f96, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  frameID: map
+  topicName: /mst110cr/kit/gnss/heading
+  publishMessageInterval: 0.2
 --- !u!1 &530772958529668862
 GameObject:
   m_ObjectHideFlags: 0
@@ -979,6 +1157,57 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   geometryType: 3
+--- !u!1 &2169147876802579396
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1636400372964142648}
+  - component: {fileID: 5830630444887751885}
+  m_Layer: 0
+  m_Name: kit_fr
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1636400372964142648
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2169147876802579396}
+  m_LocalRotation: {x: -0.35355344, y: 0.35355338, z: -0.85355335, w: -0.14644668}
+  m_LocalPosition: {x: 1.3, y: 2.3, z: 1.5}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 2274592329619372075}
+  m_RootOrder: -1
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &5830630444887751885
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2169147876802579396}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1709f4f5f5ff64bdcaee5013dc0a7c2e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  sensorId: fr
+  model: robosense_airy
+  populated: 0
+  topic: /mst110cr/kit/lidar/fr/points
+  frameId: mst110cr/kit_fr
+  managedByCapKit: 1
+  sensorInstance: {fileID: 0}
 --- !u!1 &2186674413002338156
 GameObject:
   m_ObjectHideFlags: 0
@@ -1508,6 +1737,7 @@ GameObject:
   - component: {fileID: 2698020473227564975}
   - component: {fileID: 7827708545358554870}
   - component: {fileID: 3890688983208297865}
+  - component: {fileID: 7392184561023748921}
   m_Layer: 0
   m_Name: vessel_link
   m_TagString: Untagged
@@ -1659,6 +1889,19 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   controlType: 1
+--- !u!114 &7392184561023748921
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3539786238457451380}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e480bab4e5de73a47803abf14f576b82, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  DumpTopicName: mst110cr/dump/cmd
 --- !u!1 &3595768614759480242
 GameObject:
   m_ObjectHideFlags: 0
@@ -1704,6 +1947,57 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 46398bc5d6905ad429a6d2d973afe002, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+--- !u!1 &4195872063040048116
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 78763196379258385}
+  - component: {fileID: 6521592943187597813}
+  m_Layer: 0
+  m_Name: kit_rr
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &78763196379258385
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4195872063040048116}
+  m_LocalRotation: {x: -0.85355335, y: 0.14644657, z: -0.35355335, w: -0.35355344}
+  m_LocalPosition: {x: 1.3, y: 2.3, z: -1.5}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 2274592329619372075}
+  m_RootOrder: -1
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &6521592943187597813
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4195872063040048116}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1709f4f5f5ff64bdcaee5013dc0a7c2e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  sensorId: rr
+  model: robosense_airy
+  populated: 0
+  topic: /mst110cr/kit/lidar/rr/points
+  frameId: mst110cr/kit_rr
+  managedByCapKit: 1
+  sensorInstance: {fileID: 0}
 --- !u!1 &4382676633098171943
 GameObject:
   m_ObjectHideFlags: 0
@@ -2234,6 +2528,12 @@ Transform:
   - {fileID: 2057588633201496436}
   - {fileID: 2813709753609581248}
   - {fileID: 638915402096984231}
+  - {fileID: 2688993493146975871}
+  - {fileID: 8731516868750532328}
+  - {fileID: 4179792531952284381}
+  - {fileID: 1636400372964142648}
+  - {fileID: 448280988234261489}
+  - {fileID: 78763196379258385}
   m_Father: {fileID: 8557757521421646138}
   m_RootOrder: -1
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
@@ -2363,6 +2663,95 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   controlType: 1
+--- !u!1 &5210140512427358999
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 8731516868750532328}
+  - component: {fileID: 1862861271033246811}
+  - component: {fileID: 6401680517549392111}
+  - component: {fileID: 1635920261510835310}
+  m_Layer: 0
+  m_Name: kit_roof
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &8731516868750532328
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5210140512427358999}
+  m_LocalRotation: {x: 0, y: 0, z: -1, w: -0.00000004371139}
+  m_LocalPosition: {x: -0.6, y: 3.55, z: 0.3}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children:
+  - {fileID: 5048927091109178751}
+  m_Father: {fileID: 2274592329619372075}
+  m_RootOrder: -1
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1862861271033246811
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5210140512427358999}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1709f4f5f5ff64bdcaee5013dc0a7c2e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  sensorId: roof
+  model: livox_mid360s
+  populated: 1
+  topic: /mst110cr/kit/lidar/roof/points
+  frameId: mst110cr/kit_roof
+  managedByCapKit: 1
+  sensorInstance: {fileID: 5048927091109178744}
+--- !u!114 &6401680517549392111
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5210140512427358999}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: de1d05f7ef764aa45be46678498c90e4, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  _frequency: 100
+  _position: {x: 0, y: 0, z: 0}
+  _velocity: {x: 0, y: 0, z: 0}
+  _acceleration: {x: 0, y: 0, z: 0}
+  _rotation: {x: 0, y: 0, z: 0, w: 0}
+  _angularVelocity: {x: 0, y: 0, z: 0}
+--- !u!114 &1635920261510835310
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5210140512427358999}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6c47c42043b800c4a9a6595f963c7c6c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  _frequency: 100
+  _topicName: /mst110cr/kit/imu
+  _serializer:
+    _header:
+      _frame_id: mst110cr/kit_roof_imu
 --- !u!1 &5212802904484812348
 GameObject:
   m_ObjectHideFlags: 0
@@ -2776,6 +3165,108 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 46398bc5d6905ad429a6d2d973afe002, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+--- !u!1 &5868579724534276278
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 4179792531952284381}
+  - component: {fileID: 6296860755311739508}
+  m_Layer: 0
+  m_Name: kit_fl
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &4179792531952284381
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5868579724534276278}
+  m_LocalRotation: {x: 0.35355338, y: 0.35355344, z: -0.85355335, w: 0.14644659}
+  m_LocalPosition: {x: -1.3, y: 2.3, z: 1.5}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 2274592329619372075}
+  m_RootOrder: -1
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &6296860755311739508
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5868579724534276278}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1709f4f5f5ff64bdcaee5013dc0a7c2e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  sensorId: fl
+  model: robosense_airy
+  populated: 0
+  topic: /mst110cr/kit/lidar/fl/points
+  frameId: mst110cr/kit_fl
+  managedByCapKit: 1
+  sensorInstance: {fileID: 0}
+--- !u!1 &6870565995542313826
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 448280988234261489}
+  - component: {fileID: 1240213491401982134}
+  m_Layer: 0
+  m_Name: kit_rl
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &448280988234261489
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6870565995542313826}
+  m_LocalRotation: {x: 0.85355335, y: 0.14644666, z: -0.3535534, w: 0.35355338}
+  m_LocalPosition: {x: -1.3, y: 2.3, z: -1.5}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 2274592329619372075}
+  m_RootOrder: -1
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1240213491401982134
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6870565995542313826}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1709f4f5f5ff64bdcaee5013dc0a7c2e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  sensorId: rl
+  model: robosense_airy
+  populated: 0
+  topic: /mst110cr/kit/lidar/rl/points
+  frameId: mst110cr/kit_rl
+  managedByCapKit: 1
+  sensorInstance: {fileID: 0}
 --- !u!1 &6949637786370389948
 GameObject:
   m_ObjectHideFlags: 0
@@ -3169,6 +3660,96 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: e9090ae501ff9cd459bec5271d40249c, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+--- !u!1 &8122288431715409665
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 2418956196230301849}
+  - component: {fileID: 1320140529311551693}
+  - component: {fileID: 600738967221226555}
+  - component: {fileID: 7314594048795573389}
+  m_Layer: 0
+  m_Name: kit_gnss_b
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &2418956196230301849
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8122288431715409665}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: -0.75}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 2688993493146975871}
+  m_RootOrder: -1
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1320140529311551693
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8122288431715409665}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1709f4f5f5ff64bdcaee5013dc0a7c2e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  sensorId: gnss_b
+  model: zed_f9p
+  populated: 1
+  topic: /mst110cr/kit/gnss/fix_b
+  frameId: mst110cr/kit_gnss_b
+  managedByCapKit: 1
+  sensorInstance: {fileID: 0}
+--- !u!114 &600738967221226555
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8122288431715409665}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 17bfcf824667ca741a28c3d10baed4f7, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  _frequency: 5
+  _coordinateSystem: {fileID: 0}
+  _coordinate:
+    latitude: 0
+    longitude: 0
+    altitude: 0
+--- !u!114 &7314594048795573389
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8122288431715409665}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c11ec5602b9e12544b78d1d2a4bdd5c6, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  _frequency: 5
+  _topicName: /mst110cr/kit/gnss/fix_b
+  _serializer:
+    _header:
+      _frame_id: mst110cr/kit_gnss_b
+    _status: 1
+    _service: 0
 --- !u!1 &8134376237712577901
 GameObject:
   m_ObjectHideFlags: 0
@@ -5680,6 +6261,110 @@ PrefabInstance:
 Transform:
   m_CorrespondingSourceObject: {fileID: -8679921383154817045, guid: 7be665f1e412b654490a9ee4cd8077d3, type: 3}
   m_PrefabInstance: {fileID: 3545341482235652469}
+  m_PrefabAsset: {fileID: 0}
+--- !u!1001 &4162407216150295273
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 8731516868750532328}
+    m_Modifications:
+    - target: {fileID: 9210621271187283363, guid: 3157287b39e4b554bb178a606711bf74, type: 3}
+      propertyPath: _maxRange
+      value: 40
+      objectReference: {fileID: 0}
+    - target: {fileID: 9210621271187283363, guid: 3157287b39e4b554bb178a606711bf74, type: 3}
+      propertyPath: _pointsNumPerScan
+      value: 8000
+      objectReference: {fileID: 0}
+    - target: {fileID: 9210621271816118161, guid: 3157287b39e4b554bb178a606711bf74, type: 3}
+      propertyPath: m_Name
+      value: Mid-360
+      objectReference: {fileID: 0}
+    - target: {fileID: 9210621271816118166, guid: 3157287b39e4b554bb178a606711bf74, type: 3}
+      propertyPath: m_RootOrder
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 9210621271816118166, guid: 3157287b39e4b554bb178a606711bf74, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 9210621271816118166, guid: 3157287b39e4b554bb178a606711bf74, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 9210621271816118166, guid: 3157287b39e4b554bb178a606711bf74, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 9210621271816118166, guid: 3157287b39e4b554bb178a606711bf74, type: 3}
+      propertyPath: m_LocalRotation.w
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 9210621271816118166, guid: 3157287b39e4b554bb178a606711bf74, type: 3}
+      propertyPath: m_LocalRotation.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 9210621271816118166, guid: 3157287b39e4b554bb178a606711bf74, type: 3}
+      propertyPath: m_LocalRotation.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 9210621271816118166, guid: 3157287b39e4b554bb178a606711bf74, type: 3}
+      propertyPath: m_LocalRotation.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 9210621271816118166, guid: 3157287b39e4b554bb178a606711bf74, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 9210621271816118166, guid: 3157287b39e4b554bb178a606711bf74, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 9210621271816118166, guid: 3157287b39e4b554bb178a606711bf74, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.z
+      value: 0
+      objectReference: {fileID: 0}
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents:
+    - targetCorrespondingSourceObject: {fileID: 9210621271187283373, guid: 3157287b39e4b554bb178a606711bf74, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 1636652905155915876}
+  m_SourcePrefab: {fileID: 100100000, guid: 3157287b39e4b554bb178a606711bf74, type: 3}
+--- !u!1 &5048927090748911428 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 9210621271187283373, guid: 3157287b39e4b554bb178a606711bf74, type: 3}
+  m_PrefabInstance: {fileID: 4162407216150295273}
+  m_PrefabAsset: {fileID: 0}
+--- !u!114 &1636652905155915876
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5048927090748911428}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4798c299311804f0c8e14ae72ec58a81, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  _frequency: 10
+  _topicName: /mst110cr/kit/lidar/roof/points
+  _serializer:
+    _header:
+      _frame_id: mst110cr/kit_roof
+--- !u!1 &5048927091109178744 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 9210621271816118161, guid: 3157287b39e4b554bb178a606711bf74, type: 3}
+  m_PrefabInstance: {fileID: 4162407216150295273}
+  m_PrefabAsset: {fileID: 0}
+--- !u!4 &5048927091109178751 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: 9210621271816118166, guid: 3157287b39e4b554bb178a606711bf74, type: 3}
+  m_PrefabInstance: {fileID: 4162407216150295273}
   m_PrefabAsset: {fileID: 0}
 --- !u!1001 &7213303993411488231
 PrefabInstance:

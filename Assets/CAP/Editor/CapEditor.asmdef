@@ -1,0 +1,19 @@
+{
+    "name": "CapEditor",
+    "rootNamespace": "CapKit.Editor",
+    "references": [
+        "OperaSimPhysXAssembly",
+        "UnitySensorsRuntime",
+        "UnitySensorsROSRuntime",
+        "Unity.Mathematics"
+    ],
+    "includePlatforms": ["Editor"],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

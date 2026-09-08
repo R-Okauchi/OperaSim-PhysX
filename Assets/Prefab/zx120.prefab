@@ -831,6 +831,57 @@ MonoBehaviour:
       position: {x: 0, y: 0, z: 0}
       rotation: {x: 0, y: 0, z: 0}
     m_Visible: 1
+--- !u!1 &756581874730469223
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 2890403384484920516}
+  - component: {fileID: 1773323151393870921}
+  m_Layer: 0
+  m_Name: kit_fl
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &2890403384484920516
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 756581874730469223}
+  m_LocalRotation: {x: 0.35355338, y: 0.35355344, z: -0.85355335, w: 0.14644659}
+  m_LocalPosition: {x: -1.1, y: 2, z: 1.3}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 5009124069722201598}
+  m_RootOrder: -1
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1773323151393870921
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 756581874730469223}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1709f4f5f5ff64bdcaee5013dc0a7c2e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  sensorId: fl
+  model: robosense_airy
+  populated: 0
+  topic: /zx120/kit/lidar/fl/points
+  frameId: zx120/kit_fl
+  managedByCapKit: 1
+  sensorInstance: {fileID: 0}
 --- !u!1 &765339648178582003
 GameObject:
   m_ObjectHideFlags: 0
@@ -985,7 +1036,7 @@ ArticulationBody:
   serializedVersion: 5
   m_Mass: 0.03
   m_ParentAnchorPosition: {x: -0.00000014901161, y: 2.657003, z: -1.0588338}
-  m_ParentAnchorRotation: {x: -0.35469946, y: 0.35469946, z: 0.61170954, w: 0.61170954}
+  m_ParentAnchorRotation: {x: -0.3546996, y: 0.3546996, z: 0.6117094, w: 0.6117094}
   m_AnchorPosition: {x: 0, y: 0, z: 0}
   m_AnchorRotation: {x: 0, y: 0, z: 0.7071068, w: 0.7071068}
   m_MatchAnchors: 1
@@ -2626,6 +2677,95 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: e9090ae501ff9cd459bec5271d40249c, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+--- !u!1 &1602246726206183320
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 5733413306283447650}
+  - component: {fileID: 1970994890511696908}
+  - component: {fileID: 4121004724346377079}
+  - component: {fileID: 3514545166250422533}
+  m_Layer: 0
+  m_Name: kit_roof
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &5733413306283447650
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1602246726206183320}
+  m_LocalRotation: {x: 0, y: 0, z: -1, w: -0.00000004371139}
+  m_LocalPosition: {x: -0.35, y: 3.15, z: 0.5}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children:
+  - {fileID: 8482473577676731641}
+  m_Father: {fileID: 5009124069722201598}
+  m_RootOrder: -1
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1970994890511696908
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1602246726206183320}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1709f4f5f5ff64bdcaee5013dc0a7c2e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  sensorId: roof
+  model: livox_mid360s
+  populated: 1
+  topic: /zx120/kit/lidar/roof/points
+  frameId: zx120/kit_roof
+  managedByCapKit: 1
+  sensorInstance: {fileID: 8482473577676731646}
+--- !u!114 &4121004724346377079
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1602246726206183320}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: de1d05f7ef764aa45be46678498c90e4, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  _frequency: 100
+  _position: {x: 0, y: 0, z: 0}
+  _velocity: {x: 0, y: 0, z: 0}
+  _acceleration: {x: 0, y: 0, z: 0}
+  _rotation: {x: 0, y: 0, z: 0, w: 0}
+  _angularVelocity: {x: 0, y: 0, z: 0}
+--- !u!114 &3514545166250422533
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1602246726206183320}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6c47c42043b800c4a9a6595f963c7c6c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  _frequency: 100
+  _topicName: /zx120/kit/imu
+  _serializer:
+    _header:
+      _frame_id: zx120/kit_roof_imu
 --- !u!1 &1655184937348291284
 GameObject:
   m_ObjectHideFlags: 0
@@ -4167,6 +4307,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: de755eb9608519242b24f7ffc65aad35, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  EnableVWBehaviorMode: 1
+  VWDecelFactor: 1
+  VWRatioFactor: 0.9
   leftWheels:
   - {fileID: 5656173056766670005}
   - {fileID: 5004105183583142850}
@@ -12024,6 +12167,12 @@ Transform:
   - {fileID: 2032144487696598013}
   - {fileID: 8708109578371571242}
   - {fileID: 1375347762473846978}
+  - {fileID: 6780318314300826515}
+  - {fileID: 5733413306283447650}
+  - {fileID: 2890403384484920516}
+  - {fileID: 2167262865058650368}
+  - {fileID: 4010744503452008218}
+  - {fileID: 4518151149198690858}
   m_Father: {fileID: 1092528514299210571}
   m_RootOrder: 2
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
@@ -12551,6 +12700,57 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: e9090ae501ff9cd459bec5271d40249c, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+--- !u!1 &4105445863271843844
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 4010744503452008218}
+  - component: {fileID: 3916774408977901877}
+  m_Layer: 0
+  m_Name: kit_rl
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &4010744503452008218
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4105445863271843844}
+  m_LocalRotation: {x: 0.85355335, y: 0.14644666, z: -0.3535534, w: 0.35355338}
+  m_LocalPosition: {x: -1.1, y: 2, z: -1.9}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 5009124069722201598}
+  m_RootOrder: -1
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &3916774408977901877
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4105445863271843844}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1709f4f5f5ff64bdcaee5013dc0a7c2e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  sensorId: rl
+  model: robosense_airy
+  populated: 0
+  topic: /zx120/kit/lidar/rl/points
+  frameId: zx120/kit_rl
+  managedByCapKit: 1
+  sensorInstance: {fileID: 0}
 --- !u!1 &4172347579323841996
 GameObject:
   m_ObjectHideFlags: 0
@@ -14443,6 +14643,96 @@ MeshRenderer:
   m_SortingLayer: 0
   m_SortingOrder: 0
   m_AdditionalVertexStreams: {fileID: 0}
+--- !u!1 &5266706571139468742
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 5274387157046119898}
+  - component: {fileID: 6248421537609267365}
+  - component: {fileID: 3956584938908837139}
+  - component: {fileID: 2294166383609236452}
+  m_Layer: 0
+  m_Name: kit_gnss_a
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &5274387157046119898
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5266706571139468742}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0.675}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 6780318314300826515}
+  m_RootOrder: -1
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &6248421537609267365
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5266706571139468742}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1709f4f5f5ff64bdcaee5013dc0a7c2e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  sensorId: gnss_a
+  model: zed_f9p
+  populated: 1
+  topic: /zx120/kit/gnss/fix
+  frameId: zx120/kit_gnss_a
+  managedByCapKit: 1
+  sensorInstance: {fileID: 0}
+--- !u!114 &3956584938908837139
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5266706571139468742}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 17bfcf824667ca741a28c3d10baed4f7, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  _frequency: 5
+  _coordinateSystem: {fileID: 0}
+  _coordinate:
+    latitude: 0
+    longitude: 0
+    altitude: 0
+--- !u!114 &2294166383609236452
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5266706571139468742}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c11ec5602b9e12544b78d1d2a4bdd5c6, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  _frequency: 5
+  _topicName: /zx120/kit/gnss/fix
+  _serializer:
+    _header:
+      _frame_id: zx120/kit_gnss_a
+    _status: 1
+    _service: 0
 --- !u!1 &5333416937921195147
 GameObject:
   m_ObjectHideFlags: 0
@@ -14581,6 +14871,91 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   geometryType: 1
+--- !u!1 &5378050072160213785
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 6780318314300826515}
+  - component: {fileID: 1505570152018090693}
+  - component: {fileID: 1568942141104168128}
+  - component: {fileID: 2527028067234240054}
+  m_Layer: 0
+  m_Name: kit_hub
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &6780318314300826515
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5378050072160213785}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: -0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children:
+  - {fileID: 5274387157046119898}
+  - {fileID: 798166785529980443}
+  m_Father: {fileID: 5009124069722201598}
+  m_RootOrder: -1
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1505570152018090693
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5378050072160213785}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1709f4f5f5ff64bdcaee5013dc0a7c2e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  sensorId: hub
+  model: kit_hub
+  populated: 1
+  topic: /zx120/kit/odom
+  frameId: zx120/kit_hub
+  managedByCapKit: 1
+  sensorInstance: {fileID: 0}
+--- !u!114 &1568942141104168128
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5378050072160213785}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 15cc6f5a718578648ba928b41145c438, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  topicName: /zx120/kit/odom
+  childFrameName: zx120/kit_hub
+  publishMessageInterval: 0.02
+--- !u!114 &2527028067234240054
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5378050072160213785}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 466ba427a73375f4bb5ad17b4be60f96, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  frameID: map
+  topicName: /zx120/kit/gnss/heading
+  publishMessageInterval: 0.2
 --- !u!1 &5385271466530713758
 GameObject:
   m_ObjectHideFlags: 0
@@ -14823,6 +15198,96 @@ BoxCollider:
   serializedVersion: 3
   m_Size: {x: 0.21809888, y: 0.67070675, z: 0.01}
   m_Center: {x: 0, y: 0, z: 0.00079204}
+--- !u!1 &5501439333863753608
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 798166785529980443}
+  - component: {fileID: 8040575666170262858}
+  - component: {fileID: 2737110313103881865}
+  - component: {fileID: 3651995340818505043}
+  m_Layer: 0
+  m_Name: kit_gnss_b
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &798166785529980443
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5501439333863753608}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: -0.675}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 6780318314300826515}
+  m_RootOrder: -1
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &8040575666170262858
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5501439333863753608}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1709f4f5f5ff64bdcaee5013dc0a7c2e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  sensorId: gnss_b
+  model: zed_f9p
+  populated: 1
+  topic: /zx120/kit/gnss/fix_b
+  frameId: zx120/kit_gnss_b
+  managedByCapKit: 1
+  sensorInstance: {fileID: 0}
+--- !u!114 &2737110313103881865
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5501439333863753608}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 17bfcf824667ca741a28c3d10baed4f7, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  _frequency: 5
+  _coordinateSystem: {fileID: 0}
+  _coordinate:
+    latitude: 0
+    longitude: 0
+    altitude: 0
+--- !u!114 &3651995340818505043
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5501439333863753608}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c11ec5602b9e12544b78d1d2a4bdd5c6, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  _frequency: 5
+  _topicName: /zx120/kit/gnss/fix_b
+  _serializer:
+    _header:
+      _frame_id: zx120/kit_gnss_b
+    _status: 1
+    _service: 0
 --- !u!1 &5502850993845090168
 GameObject:
   m_ObjectHideFlags: 0
@@ -15188,7 +15653,7 @@ ArticulationBody:
   m_Enabled: 1
   serializedVersion: 5
   m_Mass: 0.03
-  m_ParentAnchorPosition: {x: -0.00000014901161, y: 0.000002682209, z: -0.879444}
+  m_ParentAnchorPosition: {x: -0.00000014901161, y: 0.0000013113022, z: -0.87944514}
   m_ParentAnchorRotation: {x: 0, y: -0.707107, z: 0, w: 0.707107}
   m_AnchorPosition: {x: 0, y: 0, z: 0}
   m_AnchorRotation: {x: 0, y: -0.7071068, z: 0, w: 0.7071068}
@@ -15624,6 +16089,57 @@ BoxCollider:
   serializedVersion: 3
   m_Size: {x: 0.01, y: 0.66355395, z: 0.1588254}
   m_Center: {x: -0.002949507, y: 0, z: 0}
+--- !u!1 &5698856580882834058
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 4518151149198690858}
+  - component: {fileID: 5572759547067596570}
+  m_Layer: 0
+  m_Name: kit_rr
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &4518151149198690858
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5698856580882834058}
+  m_LocalRotation: {x: -0.85355335, y: 0.14644657, z: -0.35355335, w: -0.35355344}
+  m_LocalPosition: {x: 1.1, y: 2, z: -1.9}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 5009124069722201598}
+  m_RootOrder: -1
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &5572759547067596570
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5698856580882834058}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1709f4f5f5ff64bdcaee5013dc0a7c2e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  sensorId: rr
+  model: robosense_airy
+  populated: 0
+  topic: /zx120/kit/lidar/rr/points
+  frameId: zx120/kit_rr
+  managedByCapKit: 1
+  sensorInstance: {fileID: 0}
 --- !u!1 &5700130615046717958
 GameObject:
   m_ObjectHideFlags: 0
@@ -24241,6 +24757,57 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 46398bc5d6905ad429a6d2d973afe002, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+--- !u!1 &8117928848363341515
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 2167262865058650368}
+  - component: {fileID: 7187775848437067552}
+  m_Layer: 0
+  m_Name: kit_fr
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &2167262865058650368
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8117928848363341515}
+  m_LocalRotation: {x: -0.35355344, y: 0.35355338, z: -0.85355335, w: -0.14644668}
+  m_LocalPosition: {x: 1.1, y: 2, z: 1.3}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 5009124069722201598}
+  m_RootOrder: -1
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &7187775848437067552
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8117928848363341515}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1709f4f5f5ff64bdcaee5013dc0a7c2e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  sensorId: fr
+  model: robosense_airy
+  populated: 0
+  topic: /zx120/kit/lidar/fr/points
+  frameId: zx120/kit_fr
+  managedByCapKit: 1
+  sensorInstance: {fileID: 0}
 --- !u!1 &8126712299770436967
 GameObject:
   m_ObjectHideFlags: 0
@@ -26127,6 +26694,110 @@ Transform:
   m_CorrespondingSourceObject: {fileID: 5955675793856834622, guid: 64ce6a702dcf5c549af554cb9b61453a, type: 3}
   m_PrefabInstance: {fileID: 668382251136997554}
   m_PrefabAsset: {fileID: 0}
+--- !u!1001 &749145624566262639
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 5733413306283447650}
+    m_Modifications:
+    - target: {fileID: 9210621271187283363, guid: 3157287b39e4b554bb178a606711bf74, type: 3}
+      propertyPath: _maxRange
+      value: 40
+      objectReference: {fileID: 0}
+    - target: {fileID: 9210621271187283363, guid: 3157287b39e4b554bb178a606711bf74, type: 3}
+      propertyPath: _pointsNumPerScan
+      value: 8000
+      objectReference: {fileID: 0}
+    - target: {fileID: 9210621271816118161, guid: 3157287b39e4b554bb178a606711bf74, type: 3}
+      propertyPath: m_Name
+      value: Mid-360
+      objectReference: {fileID: 0}
+    - target: {fileID: 9210621271816118166, guid: 3157287b39e4b554bb178a606711bf74, type: 3}
+      propertyPath: m_RootOrder
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 9210621271816118166, guid: 3157287b39e4b554bb178a606711bf74, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 9210621271816118166, guid: 3157287b39e4b554bb178a606711bf74, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 9210621271816118166, guid: 3157287b39e4b554bb178a606711bf74, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 9210621271816118166, guid: 3157287b39e4b554bb178a606711bf74, type: 3}
+      propertyPath: m_LocalRotation.w
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 9210621271816118166, guid: 3157287b39e4b554bb178a606711bf74, type: 3}
+      propertyPath: m_LocalRotation.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 9210621271816118166, guid: 3157287b39e4b554bb178a606711bf74, type: 3}
+      propertyPath: m_LocalRotation.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 9210621271816118166, guid: 3157287b39e4b554bb178a606711bf74, type: 3}
+      propertyPath: m_LocalRotation.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 9210621271816118166, guid: 3157287b39e4b554bb178a606711bf74, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 9210621271816118166, guid: 3157287b39e4b554bb178a606711bf74, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 9210621271816118166, guid: 3157287b39e4b554bb178a606711bf74, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.z
+      value: 0
+      objectReference: {fileID: 0}
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents:
+    - targetCorrespondingSourceObject: {fileID: 9210621271187283373, guid: 3157287b39e4b554bb178a606711bf74, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 657515998074227182}
+  m_SourcePrefab: {fileID: 100100000, guid: 3157287b39e4b554bb178a606711bf74, type: 3}
+--- !u!4 &8482473577676731641 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: 9210621271816118166, guid: 3157287b39e4b554bb178a606711bf74, type: 3}
+  m_PrefabInstance: {fileID: 749145624566262639}
+  m_PrefabAsset: {fileID: 0}
+--- !u!1 &8482473577676731646 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 9210621271816118161, guid: 3157287b39e4b554bb178a606711bf74, type: 3}
+  m_PrefabInstance: {fileID: 749145624566262639}
+  m_PrefabAsset: {fileID: 0}
+--- !u!1 &8482473577986733762 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 9210621271187283373, guid: 3157287b39e4b554bb178a606711bf74, type: 3}
+  m_PrefabInstance: {fileID: 749145624566262639}
+  m_PrefabAsset: {fileID: 0}
+--- !u!114 &657515998074227182
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8482473577986733762}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4798c299311804f0c8e14ae72ec58a81, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  _frequency: 10
+  _topicName: /zx120/kit/lidar/roof/points
+  _serializer:
+    _header:
+      _frame_id: zx120/kit_roof
 --- !u!1001 &1039281449622971786
 PrefabInstance:
   m_ObjectHideFlags: 0
