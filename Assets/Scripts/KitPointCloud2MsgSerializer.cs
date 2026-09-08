@@ -12,6 +12,14 @@ namespace CapKit
     {
         [SerializeField] private HeaderSerializer _header = new HeaderSerializer();
         private float[] _values;
+        private Transform _frame;
+
+        /// <summary>
+        /// Frame the published points are expressed in. The contract mount describes this frame (the
+        /// CapKitFrameMarker object); sensor prefabs may place their optical origin on a child with an
+        /// offset (Mid-360: +0.047 m), so points are re-expressed here instead of in the sensor child.
+        /// </summary>
+        public void SetFrame(Transform frame) => _frame = frame;
 
         public override void Init(RaycastLiDARSensor sensor)
         {
@@ -44,10 +52,16 @@ namespace CapKit
             // One simulation timestamp for this simultaneous cloud. No per-point time offsets.
             _msg.header.stamp = new TimeStamp(Clock.time);
 
+            // sensor-child local -> kit frame local (identity when the sensor is the frame itself).
+            Matrix4x4 toFrame = _frame != null && _frame != sensor.transform
+                ? _frame.worldToLocalMatrix * sensor.transform.localToWorldMatrix
+                : Matrix4x4.identity;
+            bool reexpress = toFrame != Matrix4x4.identity;
             for (int i = 0; i < count; i++)
             {
                 var point = points[i];
                 var p = point.position;
+                if (reexpress) p = toFrame.MultiplyPoint3x4(p);
                 int offset = i * 4;
                 // Mirror UnitySensors' IPointsToPointCloud2MsgJob: sensor-local Unity -> ROS FLU.
                 bool valid = Finite(p.x) && Finite(p.y) && Finite(p.z) && Finite(point.intensity);

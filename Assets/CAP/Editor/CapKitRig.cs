@@ -176,6 +176,19 @@ namespace CapKit.Editor
                 {
                     GameObject prefab = FindSensorPrefab(s.sim.unity_prefab);
                     device = (GameObject)PrefabUtility.InstantiatePrefab(prefab, marker.transform);
+                    // Point-cloud visualizers are debug-only: on Metal their PSIZE-less shader logs a warning per
+                    // draw (≈1200 lines/s for five machines) and costs frame time that the 10 Hz LiDAR rate needs.
+                    foreach (var component in device.GetComponentsInChildren<Component>(true))
+                    {
+                        string ns = component != null ? component.GetType().Namespace : null;
+                        if (component is Behaviour behaviour && ns != null && ns.StartsWith("UnitySensors.Visualization", StringComparison.Ordinal))
+                            behaviour.enabled = false;
+                        // The visualizer's own MeshRenderer keeps drawing the point mesh (and logging) even when the
+                        // updater is disabled, so switch off renderers whose material uses a UnitySensors shader.
+                        if (component is Renderer renderer && renderer.sharedMaterial != null && renderer.sharedMaterial.shader != null
+                            && renderer.sharedMaterial.shader.name.StartsWith("UnitySensors/", StringComparison.Ordinal))
+                            renderer.enabled = false;
+                    }
                 }
                 else
                 {

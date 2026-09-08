@@ -29,6 +29,21 @@ namespace CapKit
             }
             if (_serializer == null) _serializer = new KitPointCloud2MsgSerializer();
             _serializer.Init(_sensor);
+            var marker = GetComponentInParent<CapKitFrameMarker>();
+            _serializer.SetFrame(marker != null ? marker.transform : transform);
+            // Kit sensors publish; they do not need the debug point-cloud visualizer (PSIZE warning per draw on Metal).
+            var scope = marker != null ? marker.transform : transform;
+            foreach (var behaviour in scope.GetComponentsInChildren<Behaviour>(true))
+            {
+                string ns = behaviour.GetType().Namespace;
+                if (ns != null && ns.StartsWith("UnitySensors.Visualization", System.StringComparison.Ordinal)) behaviour.enabled = false;
+            }
+            foreach (var renderer in scope.GetComponentsInChildren<Renderer>(true))
+            {
+                var material = renderer.sharedMaterial;
+                if (material != null && material.shader != null && material.shader.name.StartsWith("UnitySensors/", System.StringComparison.Ordinal))
+                    renderer.enabled = false;
+            }
             _ros = ROSConnection.GetOrCreateInstance();
             _ros.RegisterPublisher<PointCloud2Msg>(_topicName);
             _sensor.onSensorUpdated += PublishScan;
