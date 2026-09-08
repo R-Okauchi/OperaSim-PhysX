@@ -80,6 +80,11 @@ namespace CapKit.Editor
                     Require(Finite(sensor.sim.gaussian_sigma_m) && sensor.sim.gaussian_sigma_m >= 0f, "Invalid range noise.");
                     Require(!string.IsNullOrWhiteSpace(sensor.sim.unity_prefab)
                         || !string.IsNullOrWhiteSpace(sensor.sim.pattern_asset), "LiDAR requires a prefab or pattern_asset.");
+                    // JsonUtility cannot represent a JSON null object: `"imu": null` deserializes as an empty Imu.
+                    // Treat an Imu without sensor_id/topic as "no IMU" (pods without a declared IMU).
+                    if (sensor.imu != null && string.IsNullOrWhiteSpace(sensor.imu.sensor_id)
+                        && string.IsNullOrWhiteSpace(sensor.imu.topic))
+                        sensor.imu = null;
                     if (sensor.imu != null)
                     {
                         Text(sensor.imu.topic, "imu.topic");
