@@ -8058,7 +8058,7 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1061863671657297012}
   m_LocalRotation: {x: -0.35355344, y: 0.35355338, z: -0.85355335, w: -0.14644668}
-  m_LocalPosition: {x: 0.75, y: 1.6, z: 1}
+  m_LocalPosition: {x: 0.75, y: 1.55, z: 1}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -27365,7 +27365,7 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 3384673747672351027}
   m_LocalRotation: {x: 0, y: 0, z: -1, w: -0.00000004371139}
-  m_LocalPosition: {x: -0, y: 2.55, z: 0.3}
+  m_LocalPosition: {x: -0, y: 2.5, z: 0.3}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
@@ -33945,7 +33945,7 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 4079786460169179015}
   m_LocalRotation: {x: -0.85355335, y: 0.14644657, z: -0.35355335, w: -0.35355344}
-  m_LocalPosition: {x: 0.75, y: 1.6, z: -1}
+  m_LocalPosition: {x: 0.75, y: 1.55, z: -1}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -43739,7 +43739,7 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 5498744065257212845}
   m_LocalRotation: {x: 0.85355335, y: 0.14644666, z: -0.3535534, w: 0.35355338}
-  m_LocalPosition: {x: -0.75, y: 1.6, z: -1}
+  m_LocalPosition: {x: -0.75, y: 1.55, z: -1}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -56246,7 +56246,7 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 6921750354706187067}
   m_LocalRotation: {x: 0.35355338, y: 0.35355344, z: -0.85355335, w: 0.14644659}
-  m_LocalPosition: {x: -0.75, y: 1.6, z: 1}
+  m_LocalPosition: {x: -0.75, y: 1.55, z: 1}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -77388,6 +77388,7 @@ MonoBehaviour:
   _serializer:
     _header:
       _frame_id: c30r/kit_roof
+  _queueSize: 40
 --- !u!4 &424024877698210888 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 9210621271816118166, guid: 3157287b39e4b554bb178a606711bf74, type: 3}

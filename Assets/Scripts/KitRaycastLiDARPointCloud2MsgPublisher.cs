@@ -12,6 +12,9 @@ namespace CapKit
         [SerializeField] private float _frequency = 10f;
         [SerializeField] private string _topicName;
         [SerializeField] private KitPointCloud2MsgSerializer _serializer = new KitPointCloud2MsgSerializer();
+        // Outgoing ROS-TCP queue per topic. The connector default (10) overflows when several machines
+        // publish 128 KB clouds in the same frame ("Queue full! Messages are getting dropped!").
+        [SerializeField] private int _queueSize = 40;
 
         private RaycastLiDARSensor _sensor;
         private ROSConnection _ros;
@@ -45,7 +48,7 @@ namespace CapKit
                     renderer.enabled = false;
             }
             _ros = ROSConnection.GetOrCreateInstance();
-            _ros.RegisterPublisher<PointCloud2Msg>(_topicName);
+            _ros.RegisterPublisher<PointCloud2Msg>(_topicName, Mathf.Max(1, _queueSize));
             _sensor.onSensorUpdated += PublishScan;
         }
 
