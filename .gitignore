@@ -70,3 +70,7 @@ crashlytics-build.properties
 # Temporary auto-generated Android Assets
 /[Aa]ssets/[Ss]treamingAssets/aa.meta
 /[Aa]ssets/[Ss]treamingAssets/aa/*
+
+# 再生成可能な機体形状ダンプ (CAP/Perception Kit/Dump Machine Geometry; 32 MB)
+Assets/CAP/machine_geometry.json
+Assets/CAP/machine_geometry.json.meta
