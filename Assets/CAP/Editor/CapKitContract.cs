@@ -98,9 +98,13 @@ namespace CapKit.Editor
         [Serializable] internal sealed class Hub { public Pose unity; }
         [Serializable] internal sealed class Pose
         {
-            public float[] position, euler;
+            public float[] position, euler, quaternion;
             public Vector3 Position => new Vector3(position[0], position[1], position[2]);
-            public Quaternion Rotation => Quaternion.Euler(euler[0], euler[1], euler[2]);
+            // Prefer the exporter's quaternion (exact ROS→Unity mapping); Euler composition order differs
+            // between ROS (extrinsic XYZ) and Unity (Z-X-Y), which mis-oriented tilted pods.
+            public Quaternion Rotation => quaternion != null && quaternion.Length == 4
+                ? new Quaternion(quaternion[0], quaternion[1], quaternion[2], quaternion[3]).normalized
+                : Quaternion.Euler(euler[0], euler[1], euler[2]);
             public static void Validate(Pose pose)
             {
                 Require(pose != null, "Missing Unity pose.");
