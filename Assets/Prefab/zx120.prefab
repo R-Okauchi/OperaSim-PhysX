@@ -4395,11 +4395,11 @@ MonoBehaviour:
   Com3TopicName: zx120/track_cmd
   childFrameName: zx120_tf/base_link
   treadCollectionFactor: 3
-  pGain: 500
+  pGain: 1000
   iGain: 0
   dGain: 0
-  torqueLimit: 5000
-  brakeTorque: 50000
+  torqueLimit: 10000
+  brakeTorque: 100000
   maxLinearVelocity: 3
   maxAngularVelocity: 3
   publishMessageInterval: 0.02
