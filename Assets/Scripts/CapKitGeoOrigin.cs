@@ -39,27 +39,38 @@ namespace CapKit
                 foreach (var gnss in GetComponentsInChildren<GNSSSensor>(true)) gnss.enabled = false;
                 return;
             }
-            foreach (var gnss in GetComponentsInChildren<GNSSSensor>(true))
-            {
-                if (s_systemField.GetValue(gnss) == null) s_systemField.SetValue(gnss, system);
-            }
+            // Always the kit's own system: the scene may carry another GeoCoordinateSystem (OperaSim's
+            // own GNSS) at an arbitrary pose, and a kit sensor bound to it reports LLH about THAT pose.
+            // Live 2026-09-14 21:24: every kit fix came out rotated 90 deg and offset (2.7, -9.6, 2.4) m
+            // from the ROS world origin, so the estimator placed zx120 28.8 m and zx200 56 m off.
+            foreach (var gnss in GetComponentsInChildren<GNSSSensor>(true)) s_systemField.SetValue(gnss, system);
         }
 
         private GeoCoordinateSystem Resolve()
         {
             if (s_system != null) return s_system;
-            s_system = FindObjectOfType<GeoCoordinateSystem>();
-            if (s_system != null) return s_system;
-
-            // Create the origin inactive so the serialized coordinate is set before its Awake builds the converter.
+            var existing = GameObject.Find(OriginObjectName);
+            if (existing != null && existing.TryGetComponent<GeoCoordinateSystem>(out var found))
+            {
+                s_system = found;
+                return s_system;
+            }
             var go = new GameObject(OriginObjectName);
             go.SetActive(false);
+            // The kit's site frame is ENU with the ROS world origin as the survey origin: the
+            // deployment's site_origin_llh is the LLH of ROS (0,0,0) and ROS x = east, y = north,
+            // exactly what a real RTK deployment defines. UnitySensors maps the system's LOCAL x to
+            // longitude (east) and local z to latitude (north); ROS-TCP maps ROS x to Unity z and
+            // ROS y to Unity -x. Rotating the origin object -90 deg about Y makes local x = Unity z
+            // (= ROS x = east) and local z = -Unity x (= ROS y = north). Without this the LLH frame
+            // is a +90 deg yaw of the ROS world and no deployment field can honestly describe it.
+            go.transform.SetPositionAndRotation(Vector3.zero, Quaternion.Euler(0f, -90f, 0f));
             var system = go.AddComponent<GeoCoordinateSystem>();
             if (s_coordinateField != null)
                 s_coordinateField.SetValue(system, new GeoCoordinate(latitude, longitude, altitude));
             go.SetActive(true);
             s_system = system;
-            Debug.Log("[CAP Kit] Created " + OriginObjectName + " at Unity world origin (lat " + latitude +
+            Debug.Log("[CAP Kit] Created " + OriginObjectName + " at ROS world origin, ENU-aligned (lat " + latitude +
                       ", lon " + longitude + ", alt " + altitude + ")");
             return s_system;
         }
