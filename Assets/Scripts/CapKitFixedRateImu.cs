@@ -1,4 +1,3 @@
-using System.Collections.Generic;
 using System.Reflection;
 using RosMessageTypes.Sensor;
 using Unity.Robotics.ROSTCPConnector;
@@ -16,8 +15,12 @@ namespace CapKit
     /// kit IMU rate was the editor's frame rate: behind another window, or with the Mac loaded, the editor fell to
     /// 6-43 fps, the IMU from 100 Hz to 6 Hz, the kit estimate degraded past its gate, and the machines stopped
     /// (live 2026-09-29 run57, run59). The physics steps keep sim time whatever the frame rate, so here each
-    /// FixedUpdate takes a sample (at most rateHz, by sim time) and every frame publishes the samples taken since
-    /// the last one, each with its own step's stamp. The quantities are exactly IMUSensor's - the same finite
+    /// FixedUpdate takes a sample (at most rateHz, by sim time) and publishes it at once, with its own step's stamp.
+    /// At once, not queued to the frame's Update: the kit GNSS and heading publish in Update stamped with the frame
+    /// time, which is ahead of the frame's physics steps; arriving first, they advanced the estimator past the
+    /// frame's IMU samples, which it then dropped as late - at 4.5 fps every burst, and the estimate ran on
+    /// extrapolation alone until it tripped the reference check (live 2026-09-29 run63). A frame's FixedUpdates
+    /// all run before its Updates, so these go out first. The quantities are exactly IMUSensor's - the same finite
     /// differences, the same gravity term, the same FLU conversion as IMUMsgSerializer - so the Python kit shim's
     /// corrections apply unchanged; only the sampling instants move from frames to physics steps.
     ///
@@ -37,7 +40,6 @@ namespace CapKit
         /// <summary>Samples published since play started (all kit IMUs): diagnostics.</summary>
         public static long Published;
 
-        private readonly Queue<ImuMsg> _pending = new Queue<ImuMsg>();
         private ROSConnection _ros;
         private Vector3 _lastPosition;
         private Vector3 _lastVelocity;
@@ -136,17 +138,9 @@ namespace CapKit
             msg.linear_acceleration = acceleration.To<FLU>();
             msg.orientation = rotation.To<FLU>();
             msg.angular_velocity = angularVelocity.To<FLU>();
-            _pending.Enqueue(msg);
-        }
-
-        private void Update()
-        {
             if (_ros == null) return;
-            while (_pending.Count > 0)
-            {
-                _ros.Publish(topic, _pending.Dequeue());
-                Published++;
-            }
+            _ros.Publish(topic, msg);
+            Published++;
         }
     }
 }
