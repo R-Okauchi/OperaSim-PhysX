@@ -44,6 +44,9 @@ namespace CapKit
             // Live 2026-09-14 21:24: every kit fix came out rotated 90 deg and offset (2.7, -9.6, 2.4) m
             // from the ROS world origin, so the estimator placed zx120 28.8 m and zx200 56 m off.
             foreach (var gnss in GetComponentsInChildren<GNSSSensor>(true)) s_systemField.SetValue(gnss, system);
+            // The kit IMUs sample on the physics step (see CapKitFixedRateImu). From the scene root: the kit IMU
+            // mounts hang under the machine's links, not under kit_hub; installing is idempotent across hubs.
+            CapKitFixedRateImu.Install(transform.root.gameObject);
         }
 
         private GeoCoordinateSystem Resolve()
