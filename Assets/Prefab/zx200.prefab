@@ -51,6 +51,76 @@ MonoBehaviour:
   frameId: zx200/kit_rl
   managedByCapKit: 1
   sensorInstance: {fileID: 0}
+--- !u!1 &205350708248452009
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 7603558256798511539}
+  - component: {fileID: 3677921342859155298}
+  - component: {fileID: 6029137226424128690}
+  m_Layer: 0
+  m_Name: device
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &7603558256798511539
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 205350708248452009}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: -0.000001180111, y: -0.00000011920929, z: -0.0000006743509}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 5880193553621264875}
+  m_RootOrder: -1
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &3677921342859155298
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 205350708248452009}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 42c1d58c3c2fee7459d766d2a82ea877, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  _frequency: 5
+  _scanPattern: {fileID: 11400000, guid: c1a9947e6477a414c95529e4bd0c9320, type: 2}
+  _pointsNumPerScan: 7000
+  _minRange: 0.1
+  _maxRange: 30
+  _gaussianNoiseSigma: 0.015
+  _maxIntensity: 255
+--- !u!114 &6029137226424128690
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 205350708248452009}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4798c299311804f0c8e14ae72ec58a81, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  _frequency: 10
+  _topicName: /zx200/kit/lidar/fr/points
+  _serializer:
+    _header:
+      _frame_id: zx200/kit_fr
+  _queueSize: 40
 --- !u!1 &330258041213618457
 GameObject:
   m_ObjectHideFlags: 0
@@ -5525,10 +5595,11 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 3077154420454579295}
   m_LocalRotation: {x: 0.38268292, y: -0, z: 0.92387974, w: -0}
-  m_LocalPosition: {x: 1.25, y: 0.95, z: 1.6}
+  m_LocalPosition: {x: 1.32, y: 0.9, z: 1.25}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
-  m_Children: []
+  m_Children:
+  - {fileID: 7603558256798511539}
   m_Father: {fileID: 142106750047034484}
   m_RootOrder: -1
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
@@ -5546,11 +5617,11 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   sensorId: fr
   model: robosense_airy
-  populated: 0
+  populated: 1
   topic: /zx200/kit/lidar/fr/points
   frameId: zx200/kit_fr
   managedByCapKit: 1
-  sensorInstance: {fileID: 0}
+  sensorInstance: {fileID: 205350708248452009}
 --- !u!1 &3281850951010920128
 GameObject:
   m_ObjectHideFlags: 0
@@ -15203,15 +15274,15 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 9210621271816118166, guid: 3157287b39e4b554bb178a606711bf74, type: 3}
       propertyPath: m_LocalPosition.x
-      value: 0.0000008940697
+      value: -0.000002026558
       objectReference: {fileID: 0}
     - target: {fileID: 9210621271816118166, guid: 3157287b39e4b554bb178a606711bf74, type: 3}
       propertyPath: m_LocalPosition.y
-      value: -0.04700017
+      value: -0.04699993
       objectReference: {fileID: 0}
     - target: {fileID: 9210621271816118166, guid: 3157287b39e4b554bb178a606711bf74, type: 3}
       propertyPath: m_LocalPosition.z
-      value: -0.0000009536743
+      value: -0.0000019073486
       objectReference: {fileID: 0}
     - target: {fileID: 9210621271816118166, guid: 3157287b39e4b554bb178a606711bf74, type: 3}
       propertyPath: m_LocalRotation.w
