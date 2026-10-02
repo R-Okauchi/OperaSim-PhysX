@@ -220,6 +220,13 @@ namespace CapKit.Editor
             }
             var lidar = device.GetComponentInChildren<RaycastLiDARSensor>(true);
             if (lidar == null) throw new InvalidOperationException(s.sensor_id + ": device has no RaycastLiDARSensor.");
+            // The contract mount is the LiDAR's optical origin, where its rays start: put the prefab's ray origin (its
+            // RaycastLiDARSensor; the Mid-360's sits 47 mm off the prefab's base, as the real one's optical centre does)
+            // on the marker. Mounting the prefab's base there instead moved every ray's origin by that much (the cloud
+            // was re-expressed in the marker frame, but its viewpoint was not the contract's).
+            Vector3 origin = device.transform.InverseTransformPoint(lidar.transform.position);
+            device.transform.localPosition = -(device.transform.localRotation * Vector3.Scale(origin, device.transform.localScale));
+            EditorUtility.SetDirty(device.transform);
             CapKitRigObjects.Edit(lidar, so =>
             {
                 if (!fromPrefab)

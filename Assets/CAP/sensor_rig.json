@@ -19,7 +19,8 @@
     "imu_angular_velocity_sign": -1.0,
     "imu_accel_mode": "ignore",
     "imu_yaw_rate_source": "orientation",
-    "gnss_fix_quality": "assume_fixed"
+    "gnss_fix_quality": "assume_fixed",
+    "sim_self_occlusion": true
   },
   "frame_convention": {
     "ros": "x forward, y left, z up; rpy deg",
@@ -73,26 +74,26 @@
         "heading_topic": "/mst110cr/kit/gnss/heading",
         "antenna_a": {
           "ros": [
-            1.05,
-            0.85,
-            2.43
+            2.55,
+            1.17,
+            2.235
           ],
           "unity": [
-            -0.85,
-            2.43,
-            1.05
+            -1.17,
+            2.235,
+            2.55
           ]
         },
         "antenna_b": {
           "ros": [
-            -0.45,
-            0.85,
-            2.43
+            1.05,
+            1.17,
+            2.235
           ],
           "unity": [
-            -0.85,
-            2.43,
-            -0.45
+            -1.17,
+            2.235,
+            1.05
           ]
         }
       },
@@ -114,9 +115,9 @@
           ],
           "ros": {
             "xyz_m": [
-              0.3,
-              0.6,
-              2.57
+              2.6,
+              0.92,
+              2.375
             ],
             "rpy_deg": [
               180.0,
@@ -126,9 +127,9 @@
           },
           "unity": {
             "position": [
-              -0.6,
-              2.57,
-              0.3
+              -0.92,
+              2.375,
+              2.6
             ],
             "euler": [
               0.0,
@@ -503,26 +504,26 @@
         "heading_topic": "/zx200/kit/gnss/heading",
         "antenna_a": {
           "ros": [
-            1.4,
-            0.65,
-            1.948
+            1.2,
+            1.26,
+            2.19
           ],
           "unity": [
-            -0.65,
-            1.948,
-            1.4
+            -1.26,
+            2.19,
+            1.2
           ]
         },
         "antenna_b": {
           "ros": [
-            -0.2,
-            0.65,
-            1.948
+            -0.4,
+            1.26,
+            2.19
           ],
           "unity": [
-            -0.65,
-            1.948,
-            -0.2
+            -1.26,
+            2.19,
+            -0.4
           ]
         }
       },
@@ -545,8 +546,8 @@
           "ros": {
             "xyz_m": [
               0.6,
-              0.4,
-              2.15
+              0.91,
+              2.392
             ],
             "rpy_deg": [
               180.0,
@@ -556,8 +557,8 @@
           },
           "unity": {
             "position": [
-              -0.4,
-              2.15,
+              -0.91,
+              2.392,
               0.6
             ],
             "euler": [
