@@ -7970,7 +7970,7 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1045181373215728961}
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: -0.5}
+  m_LocalPosition: {x: 0, y: -0, z: -0.5}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -27348,8 +27348,6 @@ GameObject:
   m_Component:
   - component: {fileID: 296030148215514249}
   - component: {fileID: 1988209795637923934}
-  - component: {fileID: 3899999648021015074}
-  - component: {fileID: 7751429778721620188}
   m_Layer: 0
   m_Name: kit_roof
   m_TagString: Untagged
@@ -27370,6 +27368,7 @@ Transform:
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 424024877698210888}
+  - {fileID: 6116662184022936554}
   m_Father: {fileID: 2807625129950714371}
   m_RootOrder: -1
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
@@ -27392,41 +27391,6 @@ MonoBehaviour:
   frameId: c30r/kit_roof
   managedByCapKit: 1
   sensorInstance: {fileID: 424024877698210895}
---- !u!114 &3899999648021015074
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3384673747672351027}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: de1d05f7ef764aa45be46678498c90e4, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  _frequency: 100
-  _position: {x: 0, y: 0, z: 0}
-  _velocity: {x: 0, y: 0, z: 0}
-  _acceleration: {x: 0, y: 0, z: 0}
-  _rotation: {x: 0, y: 0, z: 0, w: 0}
-  _angularVelocity: {x: 0, y: 0, z: 0}
---- !u!114 &7751429778721620188
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3384673747672351027}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 6c47c42043b800c4a9a6595f963c7c6c, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  _frequency: 100
-  _topicName: /c30r/kit/imu
-  _serializer:
-    _header:
-      _frame_id: c30r/kit_roof_imu
 --- !u!1 &3387426254541167962
 GameObject:
   m_ObjectHideFlags: 0
@@ -55033,6 +54997,94 @@ BoxCollider:
   serializedVersion: 3
   m_Size: {x: 0.027280092, y: 0.31723103, z: 0.028181195}
   m_Center: {x: 0, y: 0, z: 0}
+--- !u!1 &6712478321264244780
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 6116662184022936554}
+  - component: {fileID: 3467207564895127198}
+  - component: {fileID: 4990671952923861290}
+  - component: {fileID: 5709859973067615211}
+  m_Layer: 0
+  m_Name: kit_roof_imu
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &6116662184022936554
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6712478321264244780}
+  m_LocalRotation: {x: -0, y: 0, z: 0, w: -1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 296030148215514249}
+  m_RootOrder: -1
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &3467207564895127198
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6712478321264244780}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1709f4f5f5ff64bdcaee5013dc0a7c2e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  sensorId: roof_imu
+  model: imu
+  populated: 1
+  topic: /c30r/kit/imu
+  frameId: c30r/kit_roof_imu
+  managedByCapKit: 1
+  sensorInstance: {fileID: 0}
+--- !u!114 &4990671952923861290
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6712478321264244780}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: de1d05f7ef764aa45be46678498c90e4, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  _frequency: 100
+  _position: {x: 0, y: 0, z: 0}
+  _velocity: {x: 0, y: 0, z: 0}
+  _acceleration: {x: 0, y: 0, z: 0}
+  _rotation: {x: 0, y: 0, z: 0, w: 0}
+  _angularVelocity: {x: 0, y: 0, z: 0}
+--- !u!114 &5709859973067615211
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6712478321264244780}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6c47c42043b800c4a9a6595f963c7c6c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  _frequency: 100
+  _topicName: /c30r/kit/imu
+  _serializer:
+    _header:
+      _frame_id: c30r/kit_roof_imu
 --- !u!1 &6717160624931910164
 GameObject:
   m_ObjectHideFlags: 0
@@ -70978,7 +71030,7 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 8584298541792159820}
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0.5}
+  m_LocalPosition: {x: -0, y: 0, z: 0.5}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []

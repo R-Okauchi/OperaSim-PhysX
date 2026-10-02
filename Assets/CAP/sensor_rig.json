@@ -15,7 +15,11 @@
     "sim_noise": true,
     "terrain_dem_mode": "off",
     "topology": "edge",
-    "kit_localization": "groundtruth"
+    "kit_localization": "gnss_ekf",
+    "imu_angular_velocity_sign": -1.0,
+    "imu_accel_mode": "ignore",
+    "imu_yaw_rate_source": "orientation",
+    "gnss_fix_quality": "assume_fixed"
   },
   "frame_convention": {
     "ros": "x forward, y left, z up; rpy deg",
@@ -66,7 +70,31 @@
         "baseline_m": 1.5,
         "heading_offset_deg": 0.0,
         "fix_topic": "/mst110cr/kit/gnss/fix",
-        "heading_topic": "/mst110cr/kit/gnss/heading"
+        "heading_topic": "/mst110cr/kit/gnss/heading",
+        "antenna_a": {
+          "ros": [
+            1.05,
+            0.85,
+            2.43
+          ],
+          "unity": [
+            -0.85,
+            2.43,
+            1.05
+          ]
+        },
+        "antenna_b": {
+          "ros": [
+            -0.45,
+            0.85,
+            2.43
+          ],
+          "unity": [
+            -0.85,
+            2.43,
+            -0.45
+          ]
+        }
       },
       "swing_free": true,
       "mechanical": {
@@ -142,7 +170,30 @@
             "rate_hz": 400.0,
             "range_g": 16.0,
             "topic": "/mst110cr/kit/imu",
-            "frame_id": "mst110cr/kit_roof_imu"
+            "frame_id": "mst110cr/kit_roof_imu",
+            "rpy_in_host_deg": [
+              180.0,
+              0.0,
+              0.0
+            ],
+            "unity_in_host": {
+              "position": [
+                -0.0,
+                0.0,
+                0.0
+              ],
+              "euler": [
+                0.0,
+                -0.0,
+                -180.0
+              ],
+              "quaternion": [
+                -0.0,
+                0.0,
+                1.0,
+                -0.0
+              ]
+            }
           }
         },
         {
@@ -449,7 +500,31 @@
         "baseline_m": 1.6,
         "heading_offset_deg": 0.0,
         "fix_topic": "/zx200/kit/gnss/fix",
-        "heading_topic": "/zx200/kit/gnss/heading"
+        "heading_topic": "/zx200/kit/gnss/heading",
+        "antenna_a": {
+          "ros": [
+            1.4,
+            0.65,
+            1.948
+          ],
+          "unity": [
+            -0.65,
+            1.948,
+            1.4
+          ]
+        },
+        "antenna_b": {
+          "ros": [
+            -0.2,
+            0.65,
+            1.948
+          ],
+          "unity": [
+            -0.65,
+            1.948,
+            -0.2
+          ]
+        }
       },
       "swing_free": true,
       "mechanical": {
@@ -525,7 +600,30 @@
             "rate_hz": 400.0,
             "range_g": 16.0,
             "topic": "/zx200/kit/imu",
-            "frame_id": "zx200/kit_roof_imu"
+            "frame_id": "zx200/kit_roof_imu",
+            "rpy_in_host_deg": [
+              180.0,
+              0.0,
+              0.0
+            ],
+            "unity_in_host": {
+              "position": [
+                -0.0,
+                0.0,
+                0.0
+              ],
+              "euler": [
+                0.0,
+                -0.0,
+                -180.0
+              ],
+              "quaternion": [
+                -0.0,
+                0.0,
+                1.0,
+                -0.0
+              ]
+            }
           }
         },
         {
@@ -832,7 +930,31 @@
         "baseline_m": 1.35,
         "heading_offset_deg": 0.0,
         "fix_topic": "/zx120/kit/gnss/fix",
-        "heading_topic": "/zx120/kit/gnss/heading"
+        "heading_topic": "/zx120/kit/gnss/heading",
+        "antenna_a": {
+          "ros": [
+            0.675,
+            0.0,
+            0.0
+          ],
+          "unity": [
+            -0.0,
+            0.0,
+            0.675
+          ]
+        },
+        "antenna_b": {
+          "ros": [
+            -0.675,
+            -0.0,
+            -0.0
+          ],
+          "unity": [
+            0.0,
+            -0.0,
+            -0.675
+          ]
+        }
       },
       "swing_free": true,
       "mechanical": {
@@ -908,7 +1030,30 @@
             "rate_hz": 400.0,
             "range_g": 16.0,
             "topic": "/zx120/kit/imu",
-            "frame_id": "zx120/kit_roof_imu"
+            "frame_id": "zx120/kit_roof_imu",
+            "rpy_in_host_deg": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "unity_in_host": {
+              "position": [
+                -0.0,
+                0.0,
+                0.0
+              ],
+              "euler": [
+                0.0,
+                -0.0,
+                -0.0
+              ],
+              "quaternion": [
+                -0.0,
+                0.0,
+                0.0,
+                -1.0
+              ]
+            }
           }
         },
         {
@@ -1215,7 +1360,31 @@
         "baseline_m": 1.3,
         "heading_offset_deg": 0.0,
         "fix_topic": "/ic120/kit/gnss/fix",
-        "heading_topic": "/ic120/kit/gnss/heading"
+        "heading_topic": "/ic120/kit/gnss/heading",
+        "antenna_a": {
+          "ros": [
+            0.65,
+            0.0,
+            0.0
+          ],
+          "unity": [
+            -0.0,
+            0.0,
+            0.65
+          ]
+        },
+        "antenna_b": {
+          "ros": [
+            -0.65,
+            -0.0,
+            -0.0
+          ],
+          "unity": [
+            0.0,
+            -0.0,
+            -0.65
+          ]
+        }
       },
       "swing_free": false,
       "mechanical": {
@@ -1291,7 +1460,30 @@
             "rate_hz": 400.0,
             "range_g": 16.0,
             "topic": "/ic120/kit/imu",
-            "frame_id": "ic120/kit_roof_imu"
+            "frame_id": "ic120/kit_roof_imu",
+            "rpy_in_host_deg": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "unity_in_host": {
+              "position": [
+                -0.0,
+                0.0,
+                0.0
+              ],
+              "euler": [
+                0.0,
+                -0.0,
+                -0.0
+              ],
+              "quaternion": [
+                -0.0,
+                0.0,
+                0.0,
+                -1.0
+              ]
+            }
           }
         },
         {
@@ -1598,7 +1790,31 @@
         "baseline_m": 1.0,
         "heading_offset_deg": 0.0,
         "fix_topic": "/c30r/kit/gnss/fix",
-        "heading_topic": "/c30r/kit/gnss/heading"
+        "heading_topic": "/c30r/kit/gnss/heading",
+        "antenna_a": {
+          "ros": [
+            0.5,
+            0.0,
+            0.0
+          ],
+          "unity": [
+            -0.0,
+            0.0,
+            0.5
+          ]
+        },
+        "antenna_b": {
+          "ros": [
+            -0.5,
+            -0.0,
+            -0.0
+          ],
+          "unity": [
+            0.0,
+            -0.0,
+            -0.5
+          ]
+        }
       },
       "swing_free": false,
       "mechanical": {
@@ -1674,7 +1890,30 @@
             "rate_hz": 400.0,
             "range_g": 16.0,
             "topic": "/c30r/kit/imu",
-            "frame_id": "c30r/kit_roof_imu"
+            "frame_id": "c30r/kit_roof_imu",
+            "rpy_in_host_deg": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "unity_in_host": {
+              "position": [
+                -0.0,
+                0.0,
+                0.0
+              ],
+              "euler": [
+                0.0,
+                -0.0,
+                -0.0
+              ],
+              "quaternion": [
+                -0.0,
+                0.0,
+                0.0,
+                -1.0
+              ]
+            }
           }
         },
         {

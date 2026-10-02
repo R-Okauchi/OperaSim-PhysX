@@ -57,6 +57,12 @@ namespace CapKit.Editor
                     Require(Finite(gnss.heading_offset_deg), "Invalid heading offset.");
                     Text(gnss.fix_topic, "gnss.fix_topic");
                     Text(gnss.heading_topic, "gnss.heading_topic");
+                    foreach (var antenna in new[] { gnss.antenna_a, gnss.antenna_b })
+                        if (antenna != null && antenna.unity != null && antenna.unity.Length != 0)
+                        {
+                            Require(antenna.Present, "GNSS antenna position needs three values.");
+                            foreach (float value in antenna.unity) Require(Finite(value), "Non-finite GNSS antenna position.");
+                        }
                 }
                 Require(sensors != null, "Missing sensors array (use [] to remove sensors).");
                 var names = new HashSet<string>(StringComparer.Ordinal) { "hub", "gnss_a", "gnss_b" };
@@ -90,6 +96,7 @@ namespace CapKit.Editor
                         Text(sensor.imu.topic, "imu.topic");
                         Text(sensor.imu.frame_id, "imu.frame_id");
                         Positive(sensor.imu.rate_hz, "imu.rate_hz");
+                        if (sensor.imu.HasRotation) Pose.Validate(sensor.imu.unity_in_host);
                     }
                 }
             }
@@ -119,6 +126,15 @@ namespace CapKit.Editor
         {
             public float baseline_m, heading_offset_deg;
             public string fix_topic, heading_topic;
+            // Where the kit's jig puts the antennas, in the hub frame (contract gnss_antenna_xyz_m / gnss_rover_xyz_m).
+            // Absent (older exports): the pair at +-baseline/2 along the hub's forward axis.
+            public Antenna antenna_a, antenna_b;
+        }
+        [Serializable] internal sealed class Antenna
+        {
+            public float[] ros, unity;
+            public bool Present => unity != null && unity.Length == 3;
+            public Vector3 Unity => new Vector3(unity[0], unity[1], unity[2]);
         }
         [Serializable] internal sealed class Sensor
         {
@@ -141,6 +157,11 @@ namespace CapKit.Editor
         {
             public string sensor_id, topic, frame_id;
             public float rate_hz, range_g;
+            // The IMU's axes in its host LiDAR's frame (contract imu.rpy_in_host_deg): the kit's AHRS board sits on
+            // the inverted Mid-360S's seat plate components up, 180 deg from the LiDAR. Absent: the LiDAR's axes.
+            public Pose unity_in_host;
+            public bool HasRotation => unity_in_host != null && unity_in_host.quaternion != null
+                && unity_in_host.quaternion.Length == 4 && unity_in_host.position != null && unity_in_host.position.Length == 3;
         }
 
         private static bool Finite(float value) => !float.IsNaN(value) && !float.IsInfinity(value);

@@ -42,6 +42,17 @@ namespace CapKit.Editor
         [MenuItem("CAP/Perception Kit/Remove From Prefabs")]
         public static void RemoveFromPrefabs() => RunMenu("Remove Perception Kit", Remove);
 
+        /// <summary>Apply without the closing dialog (a modal dialog blocks an editor driven by a script or MCP):
+        /// the report comes back instead, and is in the Console as well.</summary>
+        public static Report ApplyHeadless()
+        {
+            var report = new Report();
+            try { Apply(report); }
+            catch (Exception e) { report.Error(e.GetType().Name + ": " + e.Message); }
+            finally { AssetDatabase.SaveAssets(); }
+            return report;
+        }
+
         /// <summary>Never throws out of a menu handler; collects findings into one dialog.</summary>
         public static void RunMenu(string title, Action<Report> body)
         {
@@ -95,9 +106,13 @@ namespace CapKit.Editor
             if (m.gnss != null)
             {
                 float half = Mathf.Max(0f, m.gnss.baseline_m) * 0.5f;
-                // Antenna pair along the hub forward axis (Unity local +z == ROS +x).
-                ApplyGnss(root, hub, "kit_gnss_a", new Vector3(0f, 0f, +half), m.gnss.fix_topic, m.machine_id + "/kit_gnss_a", keep);
-                ApplyGnss(root, hub, "kit_gnss_b", new Vector3(0f, 0f, -half), m.gnss.fix_topic + "_b", m.machine_id + "/kit_gnss_b", keep);
+                // The antennas where the kit's jig puts them (contract gnss_antenna_xyz_m / gnss_rover_xyz_m, from
+                // hardware/cad): the fix is antenna A's position, and the kit's software takes it back to the hub by
+                // that lever arm. Older exports: the pair along the hub forward axis (Unity local +z == ROS +x).
+                Vector3 a = m.gnss.antenna_a != null && m.gnss.antenna_a.Present ? m.gnss.antenna_a.Unity : new Vector3(0f, 0f, +half);
+                Vector3 b = m.gnss.antenna_b != null && m.gnss.antenna_b.Present ? m.gnss.antenna_b.Unity : new Vector3(0f, 0f, -half);
+                ApplyGnss(root, hub, "kit_gnss_a", a, m.gnss.fix_topic, m.machine_id + "/kit_gnss_a", keep);
+                ApplyGnss(root, hub, "kit_gnss_b", b, m.gnss.fix_topic + "_b", m.machine_id + "/kit_gnss_b", keep);
                 var heading = CapKitRigObjects.Component<QuaternionStampedPublisher>(hub.gameObject);
                 heading.topicName = m.gnss.heading_topic;
                 heading.frameID = "map";
@@ -128,19 +143,20 @@ namespace CapKit.Editor
                 }
                 ApplyLidar(marker, s, report);
                 devices++;
+                // The IMU rides on its own marker, rigid with the LiDAR's (never on a compliant sub-mount), turned by
+                // the contract's imu.rpy_in_host_deg: it reports in its own axes, as the real board does.
+                CapKitRigObjects.Remove<IMUMsgPublisher>(marker.gameObject);
+                CapKitRigObjects.Remove<IMUSensor>(marker.gameObject);
                 if (s.imu != null)
                 {
-                    // Compensating IMU rides on the same rigid mount as its LiDAR (never on a compliant sub-mount).
-                    var imu = CapKitRigObjects.Component<IMUSensor>(marker.gameObject);
+                    Quaternion inHost = s.imu.HasRotation ? s.imu.unity_in_host.Rotation : Quaternion.identity;
+                    var imuMarker = CapKitRigObjects.Mount(root, marker.transform, "kit_" + s.imu.sensor_id, Vector3.zero, inHost, keep);
+                    Describe(imuMarker, s.imu.sensor_id, "imu", true, s.imu.topic, s.imu.frame_id);
+                    var imu = CapKitRigObjects.Component<IMUSensor>(imuMarker.gameObject);
                     CapKitRigObjects.Frequency(imu, Mathf.Min(s.imu.rate_hz, 100f));
-                    var pub = CapKitRigObjects.Component<IMUMsgPublisher>(marker.gameObject);
+                    var pub = CapKitRigObjects.Component<IMUMsgPublisher>(imuMarker.gameObject);
                     CapKitRigObjects.Publisher(pub, s.imu.topic, s.imu.frame_id, Mathf.Min(s.imu.rate_hz, 100f));
                     devices++;
-                }
-                else
-                {
-                    CapKitRigObjects.Remove<IMUMsgPublisher>(marker.gameObject);
-                    CapKitRigObjects.Remove<IMUSensor>(marker.gameObject);
                 }
             }
             int pruned = CapKitRigObjects.Prune(root, keep);
