@@ -44,7 +44,8 @@ public class CapCycleRecorder : MonoBehaviour
         public int width = 1280;
         public int height = 720;
         public int quality = 90;
-        public string flip = "auto";      // auto | yes | no: 読み出した画像の上下 (auto = グラフィックス API に従う)
+        public string flip = "no";        // yes | no: 読み出した画像の上下を返すか (Metal の AsyncGPUReadback は
+                                          // Texture2D と同じ下から上の行の順で、そのままで正しい向き: 2026-10-14)
         public ViewConfig[] views;
     }
 
@@ -117,7 +118,7 @@ public class CapCycleRecorder : MonoBehaviour
     private void LoadConfig()
     {
         _config = JsonUtility.FromJson<RecorderConfig>(File.ReadAllText(configPath));
-        _flip = _config.flip == "yes" || (_config.flip == "auto" && SystemInfo.graphicsUVStartsAtTop);
+        _flip = _config.flip == "yes";
         foreach (var v in _views)
         {
             if (v.rt != null) { v.rt.Release(); Destroy(v.rt); }
