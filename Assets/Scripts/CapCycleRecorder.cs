@@ -1,0 +1,370 @@
+using System;
+using System.Collections;
+using System.Collections.Concurrent;
+using System.Collections.Generic;
+using System.Globalization;
+using System.IO;
+using System.Threading;
+using UnityEngine;
+using UnityEngine.Experimental.Rendering;
+using UnityEngine.Rendering;
+
+/// <summary>
+/// 動画用の録画 (cap-pangaea scripts/cycle_video.py): 固定カメラを何台か、一定の実時間間隔で JPEG の連番に書き出す。
+///
+/// 環境変数 CAP_UNITY_RECORD_CONFIG に設定の JSON のパスがあるときだけ、シーンの読み込み後に自分を作る
+/// (シーンのファイルには触らない)。設定 (位置は ROS/world フレーム: cap の座標、Unity = (-ros.y, ros.z, ros.x)):
+///   {"out_dir": "...", "fps": 15, "width": 1280, "height": 720, "quality": 90,
+///    "views": [{"name": "overview", "pos": [x, y, z], "target": [x, y, z], "fov_deg": 50}, ...]}
+/// 操作は out_dir/control.json を 0.5 s ごとに読む:
+///   {"recording": true, "session": "cycle1"}  録画 (false で止める)
+///   {"snapshot": "test1"}                     各カメラ 1 枚 (out_dir/snapshots/test1_<view>.jpg、構図の確認)
+///   {"config_rev": 2}                          設定を読み直す (カメラの置き直し)
+/// 書き出し: out_dir/&lt;session&gt;/&lt;view&gt;/%06d.jpg と out_dir/&lt;session&gt;/frames.csv
+/// (frame, wall_s, unity_time_s, realtime_s: 同じ番号は全カメラで同じ瞬間)、止めたら out_dir/&lt;session&gt;/done.json。
+/// 描画は camera.Render → RenderTexture (Game ビューのフォーカスに依らない)、読み出しは AsyncGPUReadback、
+/// JPEG 化と書き込みは別スレッド (シミュレーションのフレームを止めない)。書き込みが詰まればそのフレームは捨てて数える。
+/// </summary>
+public class CapCycleRecorder : MonoBehaviour
+{
+    [Serializable]
+    private class ViewConfig
+    {
+        public string name;
+        public float[] pos;
+        public float[] target;
+        public float fov_deg = 50f;
+    }
+
+    [Serializable]
+    private class RecorderConfig
+    {
+        public string out_dir;
+        public float fps = 15f;
+        public int width = 1280;
+        public int height = 720;
+        public int quality = 90;
+        public string flip = "auto";      // auto | yes | no: 読み出した画像の上下 (auto = グラフィックス API に従う)
+        public ViewConfig[] views;
+    }
+
+    [Serializable]
+    private class Control
+    {
+        public bool recording;
+        public string session;
+        public string snapshot;
+        public int config_rev;
+    }
+
+    private class View
+    {
+        public string name;
+        public Camera cam;
+        public RenderTexture rt;
+    }
+
+    private struct Job
+    {
+        public byte[] pixels;
+        public string path;
+        public int width, height, quality;
+        public bool flip;
+    }
+
+    public string configPath;
+
+    private RecorderConfig _config;
+    private readonly List<View> _views = new List<View>();
+    private string _session;
+    private string _sessionDir;
+    private StreamWriter _csv;
+    private int _frame;
+    private int _dropped;
+    private int _written;
+    private string _lastSnapshot = "";
+    private int _configRev;
+    private bool _flip;
+    private BlockingCollection<Job> _queue;
+    private ConcurrentBag<byte[]> _pool;
+    private Thread _writer;
+    private int _pending;
+    private const int MaxPending = 24;
+
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
+    private static void Boot()
+    {
+        string path = Environment.GetEnvironmentVariable("CAP_UNITY_RECORD_CONFIG");
+        if (string.IsNullOrEmpty(path) || !File.Exists(path))
+        {
+            return;
+        }
+        var go = new GameObject(nameof(CapCycleRecorder));
+        DontDestroyOnLoad(go);
+        go.AddComponent<CapCycleRecorder>().configPath = path;
+    }
+
+    private void Start()
+    {
+        _queue = new BlockingCollection<Job>(new ConcurrentQueue<Job>());
+        _pool = new ConcurrentBag<byte[]>();
+        _writer = new Thread(WriteLoop) { IsBackground = true, Name = "CapCycleRecorder" };
+        _writer.Start();
+        LoadConfig();
+        StartCoroutine(Loop());
+    }
+
+    private void LoadConfig()
+    {
+        _config = JsonUtility.FromJson<RecorderConfig>(File.ReadAllText(configPath));
+        _flip = _config.flip == "yes" || (_config.flip == "auto" && SystemInfo.graphicsUVStartsAtTop);
+        foreach (var v in _views)
+        {
+            if (v.rt != null) { v.rt.Release(); Destroy(v.rt); }
+            if (v.cam != null) { Destroy(v.cam.gameObject); }
+        }
+        _views.Clear();
+        Camera main = Camera.main;
+        foreach (var vc in _config.views ?? new ViewConfig[0])
+        {
+            var go = new GameObject("CapRec_" + vc.name);
+            go.transform.SetParent(transform, false);
+            var cam = go.AddComponent<Camera>();
+            if (main != null)
+            {
+                cam.CopyFrom(main);           // 空・描画の設定は Main Camera のもの
+            }
+            var rt = new RenderTexture(_config.width, _config.height, 24, RenderTextureFormat.ARGB32);
+            rt.Create();
+            cam.enabled = false;              // 描くのはこちらから (Render)
+            cam.targetTexture = rt;
+            cam.aspect = _config.width / (float)_config.height;
+            cam.fieldOfView = vc.fov_deg;     // 垂直 FOV (fusion_viz も)
+            Vector3 pos = new Vector3(-vc.pos[1], vc.pos[2], vc.pos[0]);
+            Vector3 target = new Vector3(-vc.target[1], vc.target[2], vc.target[0]);
+            Vector3 forward = target - pos;
+            go.transform.position = pos;
+            go.transform.rotation = Quaternion.LookRotation(forward, Vector3.up);
+            float dist = forward.magnitude;
+            cam.nearClipPlane = Mathf.Max(0.1f, dist * 0.01f);
+            cam.farClipPlane = Mathf.Max(1000.0f, dist * 4.0f);
+            _views.Add(new View { name = vc.name, cam = cam, rt = rt });
+        }
+        Directory.CreateDirectory(_config.out_dir);
+        Debug.Log($"[{nameof(CapCycleRecorder)}] {_views.Count} views at {_config.width}x{_config.height} {_config.fps} fps, " +
+                  $"flip={_flip} -> {_config.out_dir}");
+    }
+
+    private IEnumerator Loop()
+    {
+        double period = 1.0 / Mathf.Max(1f, _config.fps);
+        double next = Time.realtimeSinceStartupAsDouble;
+        double nextPoll = 0.0;
+        while (true)
+        {
+            double now = Time.realtimeSinceStartupAsDouble;
+            if (now >= nextPoll)
+            {
+                nextPoll = now + 0.5;
+                PollControl();
+                period = 1.0 / Mathf.Max(1f, _config.fps);
+            }
+            if (_session != null && now >= next)
+            {
+                CaptureTick();
+                next += period;
+                if (next < now)
+                {
+                    next = now + period;      // 遅れたら追いつこうとしない (詰めて撮らない)
+                }
+            }
+            yield return null;
+        }
+    }
+
+    private void PollControl()
+    {
+        string path = Path.Combine(_config.out_dir, "control.json");
+        if (!File.Exists(path))
+        {
+            return;
+        }
+        Control c;
+        try
+        {
+            c = JsonUtility.FromJson<Control>(File.ReadAllText(path));
+        }
+        catch (Exception)
+        {
+            return;                           // 書きかけ: 次に読む
+        }
+        if (c == null)
+        {
+            return;
+        }
+        if (c.config_rev != _configRev)
+        {
+            _configRev = c.config_rev;
+            LoadConfig();
+        }
+        if (!string.IsNullOrEmpty(c.snapshot) && c.snapshot != _lastSnapshot)
+        {
+            _lastSnapshot = c.snapshot;
+            string dir = Path.Combine(_config.out_dir, "snapshots");
+            Directory.CreateDirectory(dir);
+            foreach (var v in _views)
+            {
+                Capture(v, Path.Combine(dir, $"{c.snapshot}_{v.name}.jpg"));
+            }
+        }
+        if (c.recording && !string.IsNullOrEmpty(c.session) && c.session != _session)
+        {
+            StopSession();
+            StartSession(c.session);
+        }
+        else if (!c.recording && _session != null)
+        {
+            StopSession();
+        }
+    }
+
+    private void StartSession(string session)
+    {
+        _session = session;
+        _sessionDir = Path.Combine(_config.out_dir, session);
+        foreach (var v in _views)
+        {
+            Directory.CreateDirectory(Path.Combine(_sessionDir, v.name));
+        }
+        _csv = new StreamWriter(Path.Combine(_sessionDir, "frames.csv"), false);
+        _csv.WriteLine("frame,wall_s,unity_time_s,realtime_s");
+        _frame = 0;
+        _dropped = 0;
+        _written = 0;
+        Debug.Log($"[{nameof(CapCycleRecorder)}] recording {session} -> {_sessionDir}");
+    }
+
+    private void StopSession()
+    {
+        if (_session == null)
+        {
+            return;
+        }
+        _csv.Flush();
+        _csv.Dispose();
+        _csv = null;
+        string done = Path.Combine(_sessionDir, "done.json");
+        int frames = _frame;
+        int dropped = _dropped;
+        string session = _session;
+        // 書き込みの済んだ後に印を置く (動画にするのはそれから)
+        new Thread(() =>
+        {
+            var until = DateTime.UtcNow.AddSeconds(60);
+            while (Interlocked.CompareExchange(ref _pending, 0, 0) > 0 && DateTime.UtcNow < until)
+            {
+                Thread.Sleep(100);
+            }
+            File.WriteAllText(done, $"{{\"session\": \"{session}\", \"frames\": {frames}, \"dropped\": {dropped}, " +
+                                    $"\"written\": {Interlocked.CompareExchange(ref _written, 0, 0)}}}");
+        }) { IsBackground = true }.Start();
+        Debug.Log($"[{nameof(CapCycleRecorder)}] stopped {session}: {frames} frames, {dropped} dropped");
+        _session = null;
+    }
+
+    private void CaptureTick()
+    {
+        double wall = (DateTime.UtcNow - new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc)).TotalSeconds;
+        int frame = _frame++;
+        _csv.WriteLine(string.Format(CultureInfo.InvariantCulture, "{0},{1:F4},{2:F4},{3:F4}", frame, wall, Time.time,
+                                     Time.realtimeSinceStartupAsDouble));
+        if (frame % 30 == 0)
+        {
+            _csv.Flush();
+        }
+        foreach (var v in _views)
+        {
+            Capture(v, Path.Combine(_sessionDir, v.name, frame.ToString("D6") + ".jpg"));
+        }
+    }
+
+    private void Capture(View v, string path)
+    {
+        if (Interlocked.CompareExchange(ref _pending, 0, 0) >= MaxPending)
+        {
+            _dropped++;
+            return;
+        }
+        v.cam.Render();
+        Interlocked.Increment(ref _pending);
+        int w = _config.width, h = _config.height, quality = _config.quality;
+        bool flip = _flip;
+        AsyncGPUReadback.Request(v.rt, 0, TextureFormat.RGBA32, req =>
+        {
+            if (req.hasError)
+            {
+                Interlocked.Decrement(ref _pending);
+                _dropped++;
+                return;
+            }
+            var data = req.GetData<byte>();
+            if (!_pool.TryTake(out byte[] buffer) || buffer.Length != data.Length)
+            {
+                buffer = new byte[data.Length];
+            }
+            data.CopyTo(buffer);
+            _queue.Add(new Job { pixels = buffer, path = path, width = w, height = h, quality = quality, flip = flip });
+        });
+    }
+
+    private void WriteLoop()
+    {
+        foreach (var job in _queue.GetConsumingEnumerable())
+        {
+            try
+            {
+                int w = job.width, h = job.height;
+                if (job.flip)
+                {
+                    FlipRows(job.pixels, w, h);
+                }
+                byte[] jpg = ImageConversion.EncodeArrayToJPG(job.pixels, GraphicsFormat.R8G8B8A8_SRGB, (uint)w,
+                                                              (uint)h, 0, job.quality);
+                File.WriteAllBytes(job.path, jpg);
+                Interlocked.Increment(ref _written);
+            }
+            catch (Exception e)
+            {
+                Debug.LogWarning($"[{nameof(CapCycleRecorder)}] {job.path}: {e.Message}");
+            }
+            finally
+            {
+                _pool.Add(job.pixels);
+                Interlocked.Decrement(ref _pending);
+            }
+        }
+    }
+
+    private static void FlipRows(byte[] pixels, int w, int h)
+    {
+        int stride = w * 4;
+        var row = new byte[stride];
+        for (int y = 0; y < h / 2; y++)
+        {
+            int a = y * stride, b = (h - 1 - y) * stride;
+            Buffer.BlockCopy(pixels, a, row, 0, stride);
+            Buffer.BlockCopy(pixels, b, pixels, a, stride);
+            Buffer.BlockCopy(row, 0, pixels, b, stride);
+        }
+    }
+
+    private void OnDestroy()
+    {
+        StopSession();
+        _queue?.CompleteAdding();
+        foreach (var v in _views)
+        {
+            if (v.rt != null) { v.rt.Release(); }
+        }
+    }
+}
