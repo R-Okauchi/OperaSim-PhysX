@@ -20,6 +20,10 @@ using UnityEngine.Rendering;
 ///   {"recording": true, "session": "cycle1"}  録画 (false で止める)
 ///   {"snapshot": "test1"}                     各カメラ 1 枚 (out_dir/snapshots/test1_<view>.jpg、構図の確認)
 ///   {"config_rev": 2}                          設定を読み直す (カメラの置き直し)
+/// 機体の置き直し (任意): "placements": [{"name": "ic120", "x": -40, "y": 35, "set_yaw": false, "yaw_deg": 0}, ...]
+///   シーンの読み込み直後 (物理の最初の 1 歩の前) に、その名前の機体を ROS/world の (x, y) へ (地面からの高さはそのまま、
+///   set_yaw なら ROS の yaw_deg の向きへ)。使わない機体をフィールドの端へ寄せる・録画の配置を決めるため (2026-10-15)。
+/// 地形の書き出し (任意): "terrain_dump": "/path/prefix" → prefix.json と prefix_&lt;i&gt;.f32 (各地形の高さ、行 = Unity z)。
 /// 書き出し: out_dir/&lt;session&gt;/&lt;view&gt;/%06d.jpg と out_dir/&lt;session&gt;/frames.csv
 /// (frame, wall_s, unity_time_s, realtime_s: 同じ番号は全カメラで同じ瞬間)、止めたら out_dir/&lt;session&gt;/done.json。
 /// 描画は camera.Render → RenderTexture (Game ビューのフォーカスに依らない)、読み出しは AsyncGPUReadback、
@@ -37,6 +41,16 @@ public class CapCycleRecorder : MonoBehaviour
     }
 
     [Serializable]
+    private class Placement
+    {
+        public string name;               // シーンの機体のルート (zx200, mst110cr, ic120, c30r, zx120)
+        public float x;                   // ROS/world [m]
+        public float y;
+        public bool set_yaw;              // true: yaw_deg (ROS、+x から反時計回り) へ向ける。false: 向きはそのまま
+        public float yaw_deg;
+    }
+
+    [Serializable]
     private class RecorderConfig
     {
         public string out_dir;
@@ -47,6 +61,8 @@ public class CapCycleRecorder : MonoBehaviour
         public string flip = "no";        // yes | no: 読み出した画像の上下を返すか (Metal の AsyncGPUReadback は
                                           // Texture2D と同じ下から上の行の順で、そのままで正しい向き: 2026-10-14)
         public ViewConfig[] views;
+        public Placement[] placements;
+        public string terrain_dump;
     }
 
     [Serializable]
@@ -100,9 +116,114 @@ public class CapCycleRecorder : MonoBehaviour
         {
             return;
         }
+        try
+        {
+            // シーンの読み込み直後 = 物理の最初の 1 歩の前: 置き直しも地形もここで (センサが最初の値を出す前)
+            var cfg = JsonUtility.FromJson<RecorderConfig>(File.ReadAllText(path));
+            PlaceMachines(cfg.placements);
+            DumpTerrain(cfg.terrain_dump);
+        }
+        catch (Exception e)
+        {
+            Debug.LogWarning($"[{nameof(CapCycleRecorder)}] placements/terrain: {e.Message}");
+        }
         var go = new GameObject(nameof(CapCycleRecorder));
         DontDestroyOnLoad(go);
         go.AddComponent<CapCycleRecorder>().configPath = path;
+    }
+
+    private static float GroundAt(Vector3 p)
+    {
+        foreach (var t in Terrain.activeTerrains)
+        {
+            Vector3 o = t.transform.position, size = t.terrainData.size;
+            if (p.x >= o.x && p.x <= o.x + size.x && p.z >= o.z && p.z <= o.z + size.z)
+            {
+                return t.SampleHeight(p) + o.y;
+            }
+        }
+        return float.NaN;
+    }
+
+    private static void PlaceMachines(Placement[] placements)
+    {
+        if (placements == null)
+        {
+            return;
+        }
+        foreach (var p in placements)
+        {
+            GameObject go = GameObject.Find(p.name);
+            if (go == null)
+            {
+                Debug.LogWarning($"[{nameof(CapCycleRecorder)}] placement: no object named {p.name}");
+                continue;
+            }
+            Vector3 from = go.transform.position;
+            var to = new Vector3(-p.y, from.y, p.x);
+            float g0 = GroundAt(from), g1 = GroundAt(to);
+            if (!float.IsNaN(g0) && !float.IsNaN(g1))
+            {
+                to.y = from.y + (g1 - g0);    // 地面からの高さはそのまま
+            }
+            Quaternion turn = p.set_yaw ? Quaternion.Euler(0f, -p.yaw_deg - go.transform.eulerAngles.y, 0f)
+                                        : Quaternion.identity;
+            go.transform.SetPositionAndRotation(to, turn * go.transform.rotation);
+            foreach (var ab in go.GetComponentsInChildren<ArticulationBody>())
+            {
+                if (ab.isRoot)
+                {
+                    ab.TeleportRoot(ab.transform.position, ab.transform.rotation);   // 物理の体もそこへ
+                    ab.velocity = Vector3.zero;
+                    ab.angularVelocity = Vector3.zero;
+                }
+            }
+            foreach (var rb in go.GetComponentsInChildren<Rigidbody>())
+            {
+                rb.position = rb.transform.position;
+                rb.rotation = rb.transform.rotation;
+                if (!rb.isKinematic)
+                {
+                    rb.velocity = Vector3.zero;
+                    rb.angularVelocity = Vector3.zero;
+                }
+            }
+            Debug.Log($"[{nameof(CapCycleRecorder)}] placed {p.name} at ({p.x:F1}, {p.y:F1})" +
+                      (p.set_yaw ? $" yaw {p.yaw_deg:F0} deg" : "") + $" (Unity {to})");
+        }
+    }
+
+    private static void DumpTerrain(string prefix)
+    {
+        if (string.IsNullOrEmpty(prefix))
+        {
+            return;
+        }
+        var parts = new List<string>();
+        var terrains = Terrain.activeTerrains;
+        for (int i = 0; i < terrains.Length; i++)
+        {
+            TerrainData d = terrains[i].terrainData;
+            int res = d.heightmapResolution;
+            float[,] h = d.GetHeights(0, 0, res, res);
+            string file = $"{prefix}_{i}.f32";
+            using (var w = new BinaryWriter(File.Open(file, FileMode.Create)))
+            {
+                for (int r = 0; r < res; r++)
+                {
+                    for (int c = 0; c < res; c++)
+                    {
+                        w.Write(h[r, c]);
+                    }
+                }
+            }
+            Vector3 o = terrains[i].transform.position, size = d.size;
+            parts.Add(string.Format(CultureInfo.InvariantCulture,
+                "{{\"file\": \"{0}\", \"resolution\": {1}, \"position\": [{2}, {3}, {4}], \"size\": [{5}, {6}, {7}]}}",
+                file, res, o.x, o.y, o.z, size.x, size.y, size.z));
+        }
+        File.WriteAllText(prefix + ".json", "{\"terrains\": [" + string.Join(", ", parts) + "]}");
+        Debug.Log($"[{nameof(CapCycleRecorder)}] terrain: {terrains.Length} -> {prefix}.json");
     }
 
     private void Start()
