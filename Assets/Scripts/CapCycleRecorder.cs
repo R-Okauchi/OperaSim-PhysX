@@ -8,6 +8,7 @@ using System.Threading;
 using UnityEngine;
 using UnityEngine.Experimental.Rendering;
 using UnityEngine.Rendering;
+using Unity.Robotics.ROSTCPConnector;
 
 /// <summary>
 /// 動画用の録画 (cap-pangaea scripts/cycle_video.py): 固定カメラを何台か、一定の実時間間隔で JPEG の連番に書き出す。
@@ -24,6 +25,7 @@ using UnityEngine.Rendering;
 ///   シーンの読み込み直後 (物理の最初の 1 歩の前) に、その名前の機体を ROS/world の (x, y) へ (地面からの高さはそのまま、
 ///   set_yaw なら ROS の yaw_deg の向きへ)。使わない機体をフィールドの端へ寄せる・録画の配置を決めるため (2026-10-15)。
 /// 地形の書き出し (任意): "terrain_dump": "/path/prefix" → prefix.json と prefix_&lt;i&gt;.f32 (各地形の高さ、行 = Unity z)。
+/// ROS の接続先 (任意): "ros_ip": "100.106.45.66", "ros_port": 10000 → ROSConnectionPrefab の代わりにそこへ繋ぐ。
 /// 書き出し: out_dir/&lt;session&gt;/&lt;view&gt;/%06d.jpg と out_dir/&lt;session&gt;/frames.csv
 /// (frame, wall_s, unity_time_s, realtime_s: 同じ番号は全カメラで同じ瞬間)、止めたら out_dir/&lt;session&gt;/done.json。
 /// 描画は camera.Render → RenderTexture (Game ビューのフォーカスに依らない)、読み出しは AsyncGPUReadback、
@@ -63,6 +65,8 @@ public class CapCycleRecorder : MonoBehaviour
         public ViewConfig[] views;
         public Placement[] placements;
         public string terrain_dump;
+        public string ros_ip;             // 空でなければ ROS-TCP の接続先をこれに (ROSConnectionPrefab は変えない)
+        public int ros_port;              // 0 なら prefab のまま
     }
 
     [Serializable]
@@ -121,6 +125,7 @@ public class CapCycleRecorder : MonoBehaviour
             // シーンの読み込み直後 = 物理の最初の 1 歩の前: 置き直しも地形もここで (センサが最初の値を出す前)
             var cfg = JsonUtility.FromJson<RecorderConfig>(File.ReadAllText(path));
             PlaceMachines(cfg.placements);
+            PointRos(cfg.ros_ip, cfg.ros_port);
             DumpTerrain(cfg.terrain_dump);
         }
         catch (Exception e)
@@ -130,6 +135,32 @@ public class CapCycleRecorder : MonoBehaviour
         var go = new GameObject(nameof(CapCycleRecorder));
         DontDestroyOnLoad(go);
         go.AddComponent<CapCycleRecorder>().configPath = path;
+    }
+
+    // ROS-TCP の接続先: ROSConnection は Start で繋ぐので、シーンの読み込み直後 (Start の前) に変えればそこへ繋ぐ。
+    // 既に繋いでいれば繋ぎ直す。録画とは別の用途 (機体の PC 役のホストの中継へ、2026-10-15 の本番どおりの通し)。
+    private static void PointRos(string ip, int port)
+    {
+        if (string.IsNullOrEmpty(ip))
+        {
+            return;
+        }
+        var ros = ROSConnection.GetOrCreateInstance();
+        bool connected = ros.HasConnectionThread;
+        if (connected)
+        {
+            ros.Disconnect();
+        }
+        ros.RosIPAddress = ip;
+        if (port > 0)
+        {
+            ros.RosPort = port;
+        }
+        if (connected)
+        {
+            ros.Connect();
+        }
+        Debug.Log($"[{nameof(CapCycleRecorder)}] ROS-TCP -> {ros.RosIPAddress}:{ros.RosPort}" + (connected ? " (reconnected)" : ""));
     }
 
     private static float GroundAt(Vector3 p)
