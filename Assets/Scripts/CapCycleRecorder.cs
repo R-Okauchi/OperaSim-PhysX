@@ -32,7 +32,8 @@ using Unity.Robotics.ROSTCPConnector;
 ///   "[CapSoilSelfTest] PASS|FAIL")、"soil_selftest_quit": true でその後に終わる (Linux 版を GPU の node で試す)。
 /// 表示 (任意): "visualizers": "off" → UnitySensors の点群の表示を切る (Linux 版はその shader を持たない)。
 /// 速さ (任意): "pace_log_s": 10 → 10 s ごとに "[CapPace] sim +X s in Y s wall (factor F) ..." (CapPaceLog)。
-/// 画面 (任意): "screen_cameras": "off" → 画面に描くだけのカメラを切る (センサと録画のカメラはそのまま)。
+/// 画面 (任意): "screen_cameras": "off" → 画面に描くだけのカメラを切る (センサと録画のカメラはそのまま)、
+///   "frame_rate": 60 → フレームの上限 (描かない頭無しの実行は 590 fps まで回って CPU を食う。物理は 50 Hz のまま)。
 /// 書き出し: out_dir/&lt;session&gt;/&lt;view&gt;/%06d.jpg と out_dir/&lt;session&gt;/frames.csv
 /// (frame, wall_s, unity_time_s, realtime_s: 同じ番号は全カメラで同じ瞬間)、止めたら out_dir/&lt;session&gt;/done.json。
 /// 描画は camera.Render → RenderTexture (Game ビューのフォーカスに依らない)、読み出しは AsyncGPUReadback、
@@ -80,6 +81,7 @@ public class CapCycleRecorder : MonoBehaviour
         public string visualizers;        // off: UnitySensors の点群の表示を切る (Linux 版はその shader を持たない)
         public float pace_log_s;          // >0: その秒ごとに模擬の速さを記録 (CapPaceLog)
         public string screen_cameras;     // off: 画面に描くだけのカメラ (targetTexture の無いもの) を切る (頭無しの実行)
+        public int frame_rate;            // >0: Application.targetFrameRate (頭無しの描かない実行は 600 fps 近くまで回る)
     }
 
     [Serializable]
@@ -148,6 +150,12 @@ public class CapCycleRecorder : MonoBehaviour
             if (cfg.screen_cameras == "off")
             {
                 ScreenCamerasOff();
+            }
+            if (cfg.frame_rate > 0)
+            {
+                QualitySettings.vSyncCount = 0;
+                Application.targetFrameRate = cfg.frame_rate;
+                Debug.Log($"[{nameof(CapCycleRecorder)}] frame rate {cfg.frame_rate}");
             }
             if (cfg.pace_log_s > 0f)
             {
