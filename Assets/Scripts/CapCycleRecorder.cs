@@ -26,6 +26,8 @@ using Unity.Robotics.ROSTCPConnector;
 ///   set_yaw なら ROS の yaw_deg の向きへ)。使わない機体をフィールドの端へ寄せる・録画の配置を決めるため (2026-10-15)。
 /// 地形の書き出し (任意): "terrain_dump": "/path/prefix" → prefix.json と prefix_&lt;i&gt;.f32 (各地形の高さ、行 = Unity z)。
 /// ROS の接続先 (任意): "ros_ip": "100.106.45.66", "ros_port": 10000 → ROSConnectionPrefab の代わりにそこへ繋ぐ。
+/// 土 (任意): "soil_particles": "off" → 粒子を出さない (SoilParticleSettings.particles = false: 掘った量はバケットと荷台が
+///   持ち、地形は掘った所が下がり、こぼれた所・ダンプの後ろが上がる)。"on" で粒子、空ならシーンのまま。
 /// 書き出し: out_dir/&lt;session&gt;/&lt;view&gt;/%06d.jpg と out_dir/&lt;session&gt;/frames.csv
 /// (frame, wall_s, unity_time_s, realtime_s: 同じ番号は全カメラで同じ瞬間)、止めたら out_dir/&lt;session&gt;/done.json。
 /// 描画は camera.Render → RenderTexture (Game ビューのフォーカスに依らない)、読み出しは AsyncGPUReadback、
@@ -67,6 +69,7 @@ public class CapCycleRecorder : MonoBehaviour
         public string terrain_dump;
         public string ros_ip;             // 空でなければ ROS-TCP の接続先をこれに (ROSConnectionPrefab は変えない)
         public int ros_port;              // 0 なら prefab のまま
+        public string soil_particles;     // off | on | 空 (シーンのまま)
     }
 
     [Serializable]
@@ -126,6 +129,7 @@ public class CapCycleRecorder : MonoBehaviour
             var cfg = JsonUtility.FromJson<RecorderConfig>(File.ReadAllText(path));
             PlaceMachines(cfg.placements);
             PointRos(cfg.ros_ip, cfg.ros_port);
+            SoilParticles(cfg.soil_particles);
             DumpTerrain(cfg.terrain_dump);
         }
         catch (Exception e)
@@ -161,6 +165,26 @@ public class CapCycleRecorder : MonoBehaviour
             ros.Connect();
         }
         Debug.Log($"[{nameof(CapCycleRecorder)}] ROS-TCP -> {ros.RosIPAddress}:{ros.RosPort}" + (connected ? " (reconnected)" : ""));
+    }
+
+    // 土の粒子: SoilParticleSettings は Awake で自分を instance にし、Start で地形と荷台を用意するので、その間 (ここ) で決める
+    private static void SoilParticles(string mode)
+    {
+        if (string.IsNullOrEmpty(mode))
+        {
+            return;
+        }
+        bool on = mode == "on" || mode == "true" || mode == "yes";
+        bool off = mode == "off" || mode == "false" || mode == "no";
+        var soil = SoilParticleSettings.instance;
+        if (soil == null || !(on || off))
+        {
+            Debug.LogWarning($"[{nameof(CapCycleRecorder)}] soil_particles \"{mode}\": " +
+                             (soil == null ? "no SoilParticleSettings in the scene" : "neither on nor off"));
+            return;
+        }
+        soil.particles = on;
+        Debug.Log($"[{nameof(CapCycleRecorder)}] soil particles {(on ? "on" : "off")}");
     }
 
     private static float GroundAt(Vector3 p)

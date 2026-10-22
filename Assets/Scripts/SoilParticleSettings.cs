@@ -86,6 +86,10 @@ public class SoilParticleSettings : MonoBehaviour
     [Tooltip("掘削時の地形変形を有効にする")]
     public bool enable = true;
 
+    [Tooltip("掘った土を粒子にする。false なら粒子を出さず、掘った量はバケットが持ち、こぼれた先 (荷台か地面) へ移す: " +
+             "地形は掘った所が下がり、落ちた所が上がる (崩れはそのまま)。シーンの読み込みの後、Start より前に決める")]
+    public bool particles = true;
+
     [Tooltip("粒子の見た目の大きさ(m)")]
     public float particleVisualRadius = 0.2f;
 
@@ -148,6 +152,14 @@ public class SoilParticleSettings : MonoBehaviour
     private float[,] originalHeights;
 
     private TerrainTiler tiler = null;
+
+    /// <summary>
+    /// 1 回の掘削 (ModifyTerrain の diff = 粒子の体積) が地形から取る量 [m3]。Dig.compute は 3×3 の高さの点に
+    /// diff / 9 / 2.5 を高さの texture の尺度 (正規化した高さ × 32766/65535) で足すので、1 点あたり
+    /// diff / 22.5 / (32766/65535) × 地形の高さ方向の大きさ [m]、それに点の間隔の面積を掛けて 9 点分。
+    /// SimpleScene (100 m 四方・高さ 100 m・513 点、粒子の半径 0.1 m) で 0.0128 m3。
+    /// </summary>
+    public float DigUnitM3 { get; private set; }
 
     private void Awake()
     {
@@ -284,6 +296,30 @@ public class SoilParticleSettings : MonoBehaviour
             ModifyTerrain(point, -particle_volume);
             CreateRock(point);
             last_created_time = now;
+        }
+    }
+
+    /// <summary>粒子なしの掘削: point で地形を最大 1 回分 (DigUnitM3) 下げ、下げた量 [m3] を返す (room [m3] まで)。</summary>
+    public float DigUnit(Vector3 point, float room)
+    {
+        if (!enable || room <= 0f || DigUnitM3 <= 0f)
+            return 0f;
+        float take = Mathf.Min(room, DigUnitM3);
+        ModifyTerrain(point, -particle_volume * take / DigUnitM3);
+        return take;
+    }
+
+    /// <summary>粒子なしで落ちた土: volume [m3] を point の周り (正規分布 σ = spread [m]、2σ で切る) に 1 回分ずつ置く。</summary>
+    public void Deposit(Vector3 point, float volume, float spread)
+    {
+        if (!enable || DigUnitM3 <= 0f)
+            return;
+        while (volume > 1e-7f)
+        {
+            float part = Mathf.Min(volume, DigUnitM3);
+            Vector2 o = CapSoilGeometry.Gaussian2(spread);
+            ModifyTerrain(point + new Vector3(o.x, 0f, o.y), particle_volume * part / DigUnitM3);
+            volume -= part;
         }
     }
 
@@ -440,6 +476,19 @@ public class SoilParticleSettings : MonoBehaviour
         cs.SetTexture(thermalKernelIdx, "Sediment", sedimentRT);
 
         timeElapsed = 0.0f;
+
+        DigUnitM3 = 9f * (particle_volume / 22.5f) / (32766f / 65535f) * terrainScale.y
+                    * (terrainScale.x / (xRes - 1)) * (terrainScale.z / (yRes - 1));
+        if (!particles)
+        {
+            // 荷台: VesselController の付いたリンクに。バケットは BucketRocks が自分で
+            foreach (var vessel in FindObjectsOfType<VesselController>())
+            {
+                if (vessel.GetComponent<CapBedLoad>() == null)
+                    vessel.gameObject.AddComponent<CapBedLoad>();
+            }
+            Debug.Log($"[CapSoil] no particles: one dig {DigUnitM3:F4} m3, terrain {terrainScale} at {xRes}x{yRes}");
+        }
     }
 
     void OnApplicationQuit()
@@ -567,7 +616,8 @@ public class SoilParticleSettings : MonoBehaviour
         if (!enable)
             return;
 
-        UpdateStickForce();
+        if (particles)
+            UpdateStickForce();
 
         var terrainData = gameObject.GetComponent<Terrain>().terrainData;
 
