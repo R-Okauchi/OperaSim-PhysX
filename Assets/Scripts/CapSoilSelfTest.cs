@@ -27,6 +27,16 @@ public class CapSoilSelfTest : MonoBehaviour
         {
             var terrain = soil.GetComponent<Terrain>();
             var (gpu0, cpu0) = soil.HeightmapTexel(point);
+            // the working heightmap against the terrain where it is not flat too (SimpleScene's pit, its east wall,
+            // the open ground: ROS (x, y) as Unity (-y, ., x)) - a seed laid out other than the terrain is would show
+            float worst = 0f;
+            var pairs = new System.Collections.Generic.List<string>();
+            foreach (var ros in new[] { new Vector2(-20f, -10f), new Vector2(-8.3f, -10f), new Vector2(-15f, 5f), new Vector2(10f, 10f) })
+            {
+                var (g, c) = soil.HeightmapTexel(new Vector3(-ros.y, 0f, ros.x));
+                worst = Mathf.Max(worst, Mathf.Abs(g - c));
+                pairs.Add($"({ros.x:F1},{ros.y:F1}) {g:F5}/{c:F5}");
+            }
             float v0 = Volume(terrain, point, 20);
             for (int i = 0; i < 20; i++)
             {
@@ -42,10 +52,10 @@ public class CapSoilSelfTest : MonoBehaviour
             float v2 = Volume(terrain, point, 20);
             float dug = v0 - v1, expected = 20f * soil.DigUnitM3, put = v2 - v1;
             pass = Mathf.Abs(dug - expected) <= 0.02f * expected && Mathf.Abs(put - 0.3f) <= 0.006f
-                   && Mathf.Abs(gpu0 - cpu0) <= 1e-4f;
+                   && Mathf.Abs(gpu0 - cpu0) <= 1e-4f && worst <= 1e-4f;
             result = $"20 digs took {dug:F4} m3 of {expected:F4}, a 0.3 m3 deposit put {put:F4} m3, the working " +
                      $"heightmap {gpu0:F5} where the terrain is {cpu0:F5} (after the digs {gpu1:F5}/{cpu1:F5}, " +
-                     $"3 steps on {gpu2:F5}/{cpu2:F5}) " +
+                     $"3 steps on {gpu2:F5}/{cpu2:F5}; elsewhere {string.Join(", ", pairs)}) " +
                      $"(particles {(soil.particles ? "on" : "off")}, {SystemInfo.graphicsDeviceType} {SystemInfo.graphicsDeviceName}, " +
                      $"compute {(SystemInfo.supportsComputeShaders ? "yes" : "no")})";
         }
