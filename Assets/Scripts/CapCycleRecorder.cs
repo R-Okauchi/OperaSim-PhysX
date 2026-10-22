@@ -32,6 +32,7 @@ using Unity.Robotics.ROSTCPConnector;
 ///   "[CapSoilSelfTest] PASS|FAIL")、"soil_selftest_quit": true でその後に終わる (Linux 版を GPU の node で試す)。
 /// 表示 (任意): "visualizers": "off" → UnitySensors の点群の表示を切る (Linux 版はその shader を持たない)。
 /// 速さ (任意): "pace_log_s": 10 → 10 s ごとに "[CapPace] sim +X s in Y s wall (factor F) ..." (CapPaceLog)。
+/// 画面 (任意): "screen_cameras": "off" → 画面に描くだけのカメラを切る (センサと録画のカメラはそのまま)。
 /// 書き出し: out_dir/&lt;session&gt;/&lt;view&gt;/%06d.jpg と out_dir/&lt;session&gt;/frames.csv
 /// (frame, wall_s, unity_time_s, realtime_s: 同じ番号は全カメラで同じ瞬間)、止めたら out_dir/&lt;session&gt;/done.json。
 /// 描画は camera.Render → RenderTexture (Game ビューのフォーカスに依らない)、読み出しは AsyncGPUReadback、
@@ -78,6 +79,7 @@ public class CapCycleRecorder : MonoBehaviour
         public bool soil_selftest_quit;   // その後に終わる (合格 0、不合格 3)
         public string visualizers;        // off: UnitySensors の点群の表示を切る (Linux 版はその shader を持たない)
         public float pace_log_s;          // >0: その秒ごとに模擬の速さを記録 (CapPaceLog)
+        public string screen_cameras;     // off: 画面に描くだけのカメラ (targetTexture の無いもの) を切る (頭無しの実行)
     }
 
     [Serializable]
@@ -142,6 +144,10 @@ public class CapCycleRecorder : MonoBehaviour
             if (cfg.visualizers == "off")
             {
                 SilenceVisualizers();
+            }
+            if (cfg.screen_cameras == "off")
+            {
+                ScreenCamerasOff();
             }
             if (cfg.pace_log_s > 0f)
             {
@@ -218,6 +224,20 @@ public class CapCycleRecorder : MonoBehaviour
             }
         }
         Debug.Log($"[{nameof(CapCycleRecorder)}] visualizers off: {behaviours} behaviours, {renderers} renderers");
+    }
+
+    // 画面に描くだけのカメラ (targetTexture の無いもの: Main Camera など): 頭無しの実行 (Linux 版をソフトの OpenGL で) では
+    // 誰も見ない画面に毎フレーム描いて模擬を遅らせる。センサのカメラと録画のカメラ (RenderTexture に描く) はそのまま。
+    private static void ScreenCamerasOff()
+    {
+        int n = 0;
+        foreach (var cam in Resources.FindObjectsOfTypeAll<Camera>())
+        {
+            if (cam == null || cam.gameObject.scene.rootCount == 0 || !cam.enabled || cam.targetTexture != null) continue;
+            cam.enabled = false;
+            n++;
+        }
+        Debug.Log($"[{nameof(CapCycleRecorder)}] screen cameras off: {n}");
     }
 
     // 土の粒子: SoilParticleSettings は Awake で自分を instance にし、Start で地形と荷台を用意するので、その間 (ここ) で決める
