@@ -299,6 +299,25 @@ public class SoilParticleSettings : MonoBehaviour
         }
     }
 
+    /// <summary>診断: point の高さの点の作業用の高さ (GPU の heightmap、高さの texture の尺度) と地形の CPU の高さを同じ尺度で。
+    /// 2 つが違えば地形の変化は GPU とずれている (Linux 版の自己試験が使う)。</summary>
+    public (float gpu, float cpu) HeightmapTexel(Vector3 point)
+    {
+        var terrainData = GetComponent<Terrain>().terrainData;
+        Vector3 relpos = point - transform.position;
+        int x = Mathf.Clamp(Mathf.RoundToInt(relpos.x / terrainData.size.x * (xRes - 1)), 0, xRes - 1);
+        int y = Mathf.Clamp(Mathf.RoundToInt(relpos.z / terrainData.size.z * (yRes - 1)), 0, yRes - 1);
+        var prev = RenderTexture.active;
+        RenderTexture.active = heightmapRT0;
+        var one = new Texture2D(1, 1, TextureFormat.RGBAFloat, false, true);   // ReadPixels' float format
+        one.ReadPixels(new Rect(x, y, 1, 1), 0, 0, false);
+        one.Apply(false, false);
+        RenderTexture.active = prev;
+        float gpu = one.GetPixel(0, 0).r;
+        Destroy(one);
+        return (gpu, terrainData.GetHeights(x, y, 1, 1)[0, 0] * (32766f / 65535f));
+    }
+
     /// <summary>粒子なしの掘削: point で地形を最大 1 回分 (DigUnitM3) 下げ、下げた量 [m3] を返す (room [m3] まで)。</summary>
     public float DigUnit(Vector3 point, float room)
     {
@@ -460,8 +479,21 @@ public class SoilParticleSettings : MonoBehaviour
         sedimentRT.enableRandomWrite = true;
         sedimentRT.filterMode = FilterMode.Point;
 
-        UnityEngine.Graphics.Blit(terrainTexture, heightmapRT0);
-        UnityEngine.Graphics.Blit(terrainTexture, heightmapRT1);
+        // The working heightmaps from the terrain's own heights (its CPU copy) in the heightmap texture's scale
+        // (normalized height x 32766/65535): a Blit of terrainData.heightmapTexture left them empty on the Linux
+        // player's Vulkan - every dig then copied a hole to the terrain's bottom back (CapSoilSelfTest: 1079 m3 for
+        // 20 digs of 0.0128). The same values on Metal and OpenGL.
+        var seed = new Texture2D(xRes, yRes, TextureFormat.RFloat, false, true);
+        var texels = new float[xRes * yRes];
+        int hr = Mathf.Min(yRes, originalHeights.GetLength(0)), hc = Mathf.Min(xRes, originalHeights.GetLength(1));
+        for (int y = 0; y < hr; y++)
+            for (int x = 0; x < hc; x++)
+                texels[y * xRes + x] = originalHeights[y, x] * (32766f / 65535f);
+        seed.SetPixelData(texels, 0);
+        seed.Apply(false, false);
+        UnityEngine.Graphics.Blit(seed, heightmapRT0);
+        UnityEngine.Graphics.Blit(seed, heightmapRT1);
+        Destroy(seed);
         UnityEngine.Graphics.Blit(Texture2D.blackTexture, sedimentRT);
 
         float dx = (float)texelSize.x;

@@ -26,6 +26,7 @@ public class CapSoilSelfTest : MonoBehaviour
         else
         {
             var terrain = soil.GetComponent<Terrain>();
+            var (gpu0, cpu0) = soil.HeightmapTexel(point);
             float v0 = Volume(terrain, point, 20);
             for (int i = 0; i < 20; i++)
             {
@@ -38,8 +39,10 @@ public class CapSoilSelfTest : MonoBehaviour
             for (int i = 0; i < 3; i++) yield return new WaitForFixedUpdate();
             float v2 = Volume(terrain, point, 20);
             float dug = v0 - v1, expected = 20f * soil.DigUnitM3, put = v2 - v1;
-            pass = Mathf.Abs(dug - expected) <= 0.02f * expected && Mathf.Abs(put - 0.3f) <= 0.006f;
-            result = $"20 digs took {dug:F4} m3 of {expected:F4}, a 0.3 m3 deposit put {put:F4} m3 " +
+            pass = Mathf.Abs(dug - expected) <= 0.02f * expected && Mathf.Abs(put - 0.3f) <= 0.006f
+                   && Mathf.Abs(gpu0 - cpu0) <= 1e-4f;
+            result = $"20 digs took {dug:F4} m3 of {expected:F4}, a 0.3 m3 deposit put {put:F4} m3, the working " +
+                     $"heightmap {gpu0:F5} where the terrain is {cpu0:F5} " +
                      $"(particles {(soil.particles ? "on" : "off")}, {SystemInfo.graphicsDeviceType} {SystemInfo.graphicsDeviceName}, " +
                      $"compute {(SystemInfo.supportsComputeShaders ? "yes" : "no")})";
         }
