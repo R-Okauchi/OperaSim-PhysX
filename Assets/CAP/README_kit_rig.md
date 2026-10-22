@@ -1,9 +1,9 @@
 # CAP Perception Kit rig (Unity side)
 
-Single source of truth = cap-pangaea contract (`cap_pangaea/contract/machines/*.json` `sensors[]` + `kit`).
+Single source of truth = the CAP contract (its machine files `contract/machines/*.json`: `sensors[]` + `kit`).
 
 ```
-cd cap-pangaea
+cd <the CAP repository>
 PYTHONPATH=../cooperative-agent-protocol/cap-spec/gen/python python scripts/export_sensor_rig.py \
     --deployment utens-operasim-kit --out ../OperaSim-PhysX/Assets/CAP/sensor_rig.json
 ```

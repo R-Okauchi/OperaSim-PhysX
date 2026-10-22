@@ -8,7 +8,7 @@ using System.IO;
 /// <summary>
 /// 仮想カメラリグの Unity 追従コンポーネント（論文/README 撮影用・観測専用）。
 ///
-/// cap-pangaea が唯一の camera pose master となり、ROS2 /viz/camera_rig
+/// CAP が唯一の camera pose master となり、ROS2 /viz/camera_rig
 /// (std_msgs/Float64MultiArray) で正典 pose を配る。本コンポーネントはそれを購読し、
 /// ROS/world フレーム → Unity フレームへ逆変換して Main Camera を追従させる。
 ///
@@ -95,7 +95,7 @@ public class CameraController : MonoBehaviour
         transform.rotation = Quaternion.LookRotation(forward, upU);
         if (fovDeg > 1.0f)
         {
-            _cam.fieldOfView = fovDeg;  // Unity は垂直 FOV (pangaea も垂直)
+            _cam.fieldOfView = fovDeg;  // Unity は垂直 FOV (CAP も垂直)
         }
         float dist = forward.magnitude;
         _cam.nearClipPlane = Mathf.Max(0.1f, dist * 0.01f);

@@ -1,6 +1,6 @@
 {
   "schema_version": "1.0",
-  "generated_from": "cap-pangaea contract (scripts/export_sensor_rig.py) — do not edit by hand",
+  "generated_from": "CAP contract (scripts/export_sensor_rig.py) — do not edit by hand",
   "deployment_id": "utens-operasim-kit",
   "perception": {
     "enabled": true,

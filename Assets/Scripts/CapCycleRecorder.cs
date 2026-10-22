@@ -11,7 +11,7 @@ using UnityEngine.Rendering;
 using Unity.Robotics.ROSTCPConnector;
 
 /// <summary>
-/// 動画用の録画 (cap-pangaea scripts/cycle_video.py): 固定カメラを何台か、一定の実時間間隔で JPEG の連番に書き出す。
+/// 動画用の録画 (CAP の scripts/cycle_video.py): 固定カメラを何台か、一定の実時間間隔で JPEG の連番に書き出す。
 ///
 /// 環境変数 CAP_UNITY_RECORD_CONFIG に設定の JSON のパスがあるときだけ、シーンの読み込み後に自分を作る
 /// (シーンのファイルには触らない)。設定 (位置は ROS/world フレーム: cap の座標、Unity = (-ros.y, ros.z, ros.x)):

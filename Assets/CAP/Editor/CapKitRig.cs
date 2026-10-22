@@ -16,7 +16,7 @@ namespace CapKit.Editor
 {
     /// <summary>
     /// CAP perception kit editor tool. Reads Assets/CAP/sensor_rig.json (generated from the
-    /// cap-pangaea contract by scripts/export_sensor_rig.py) and PERMANENTLY edits the machine
+    /// CAP contract by scripts/export_sensor_rig.py) and PERMANENTLY edits the machine
     /// prefabs: kit_hub (ground-truth odometry stand-in, GNSS pair, heading), one kit_&lt;sensor_id&gt;
     /// mount per declared sensor (roof + fl/fr/rl/rr), and the LiDAR/IMU devices for populated sensors.
     /// Idempotent: re-running updates poses/params and prunes mounts no longer in the JSON.
