@@ -30,6 +30,8 @@ using Unity.Robotics.ROSTCPConnector;
 ///   持ち、地形は掘った所が下がり、こぼれた所・ダンプの後ろが上がる)。"on" で粒子、空ならシーンのまま。
 ///   "soil_selftest": true → 起動の 3 s 後に遠くで 20 回掘り 0.3 m3 置いて地形の体積で確かめる (CapSoilSelfTest、ログに
 ///   "[CapSoilSelfTest] PASS|FAIL")、"soil_selftest_quit": true でその後に終わる (Linux 版を GPU の node で試す)。
+/// 表示 (任意): "visualizers": "off" → UnitySensors の点群の表示を切る (Linux 版はその shader を持たない)。
+/// 速さ (任意): "pace_log_s": 10 → 10 s ごとに "[CapPace] sim +X s in Y s wall (factor F) ..." (CapPaceLog)。
 /// 書き出し: out_dir/&lt;session&gt;/&lt;view&gt;/%06d.jpg と out_dir/&lt;session&gt;/frames.csv
 /// (frame, wall_s, unity_time_s, realtime_s: 同じ番号は全カメラで同じ瞬間)、止めたら out_dir/&lt;session&gt;/done.json。
 /// 描画は camera.Render → RenderTexture (Game ビューのフォーカスに依らない)、読み出しは AsyncGPUReadback、
@@ -74,6 +76,8 @@ public class CapCycleRecorder : MonoBehaviour
         public string soil_particles;     // off | on | 空 (シーンのまま)
         public bool soil_selftest;        // 起動の 3 s 後に土の自己試験 (CapSoilSelfTest: Linux 版の GPU で地形が掘れるか)
         public bool soil_selftest_quit;   // その後に終わる (合格 0、不合格 3)
+        public string visualizers;        // off: UnitySensors の点群の表示を切る (Linux 版はその shader を持たない)
+        public float pace_log_s;          // >0: その秒ごとに模擬の速さを記録 (CapPaceLog)
     }
 
     [Serializable]
@@ -135,6 +139,16 @@ public class CapCycleRecorder : MonoBehaviour
             PointRos(cfg.ros_ip, cfg.ros_port);
             SoilParticles(cfg.soil_particles);
             DumpTerrain(cfg.terrain_dump);
+            if (cfg.visualizers == "off")
+            {
+                SilenceVisualizers();
+            }
+            if (cfg.pace_log_s > 0f)
+            {
+                var pace = new GameObject(nameof(CapPaceLog));
+                DontDestroyOnLoad(pace);
+                pace.AddComponent<CapPaceLog>().period = cfg.pace_log_s;
+            }
             if (cfg.soil_selftest)
             {
                 var check = new GameObject(nameof(CapSoilSelfTest));
@@ -175,6 +189,35 @@ public class CapCycleRecorder : MonoBehaviour
             ros.Connect();
         }
         Debug.Log($"[{nameof(CapCycleRecorder)}] ROS-TCP -> {ros.RosIPAddress}:{ros.RosPort}" + (connected ? " (reconnected)" : ""));
+    }
+
+    // UnitySensors の点群の表示 (UnitySensors.Visualization の振る舞い、その shader の描画): 表示だけのもので、Linux 版は
+    // shader を持たない (毎フレーム NullReferenceException)、描くのも時間を食う。Start の前に切れば購読もしない
+    // (エディタの通しは CapKit.Editor.CapKitPlay が同じことをする)。
+    private static void SilenceVisualizers()
+    {
+        int behaviours = 0, renderers = 0;
+        foreach (var behaviour in Resources.FindObjectsOfTypeAll<Behaviour>())
+        {
+            if (behaviour == null || behaviour.gameObject.scene.rootCount == 0) continue;
+            string ns = behaviour.GetType().Namespace;
+            if (ns != null && ns.StartsWith("UnitySensors.Visualization", StringComparison.Ordinal) && behaviour.enabled)
+            {
+                behaviour.enabled = false;
+                behaviours++;
+            }
+        }
+        foreach (var renderer in Resources.FindObjectsOfTypeAll<Renderer>())
+        {
+            if (renderer == null || renderer.gameObject.scene.rootCount == 0 || !renderer.enabled) continue;
+            var material = renderer.sharedMaterial;
+            if (material != null && material.shader != null && material.shader.name.StartsWith("UnitySensors/", StringComparison.Ordinal))
+            {
+                renderer.enabled = false;
+                renderers++;
+            }
+        }
+        Debug.Log($"[{nameof(CapCycleRecorder)}] visualizers off: {behaviours} behaviours, {renderers} renderers");
     }
 
     // 土の粒子: SoilParticleSettings は Awake で自分を instance にし、Start で地形と荷台を用意するので、その間 (ここ) で決める

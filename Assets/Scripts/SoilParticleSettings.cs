@@ -513,7 +513,8 @@ public class SoilParticleSettings : MonoBehaviour
 
         cs2.SetTexture(digKernelIdx, "heightmap", heightmapRT0);
         cs2.SetFloat("diff", diff);
-        cs2.SetVector("pos", new Vector2(posXInTerrain, posYInTerrain));
+        // the kernel's pos is an int2: set as integers (a float vector's bits read as integers on Vulkan)
+        cs2.SetInts("pos", posXInTerrain, posYInTerrain);
 
         cs2.Dispatch(digKernelIdx, 1, 1, 1);
 
