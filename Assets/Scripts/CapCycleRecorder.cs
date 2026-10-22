@@ -28,6 +28,8 @@ using Unity.Robotics.ROSTCPConnector;
 /// ROS の接続先 (任意): "ros_ip": "100.106.45.66", "ros_port": 10000 → ROSConnectionPrefab の代わりにそこへ繋ぐ。
 /// 土 (任意): "soil_particles": "off" → 粒子を出さない (SoilParticleSettings.particles = false: 掘った量はバケットと荷台が
 ///   持ち、地形は掘った所が下がり、こぼれた所・ダンプの後ろが上がる)。"on" で粒子、空ならシーンのまま。
+///   "soil_selftest": true → 起動の 3 s 後に遠くで 20 回掘り 0.3 m3 置いて地形の体積で確かめる (CapSoilSelfTest、ログに
+///   "[CapSoilSelfTest] PASS|FAIL")、"soil_selftest_quit": true でその後に終わる (Linux 版を GPU の node で試す)。
 /// 書き出し: out_dir/&lt;session&gt;/&lt;view&gt;/%06d.jpg と out_dir/&lt;session&gt;/frames.csv
 /// (frame, wall_s, unity_time_s, realtime_s: 同じ番号は全カメラで同じ瞬間)、止めたら out_dir/&lt;session&gt;/done.json。
 /// 描画は camera.Render → RenderTexture (Game ビューのフォーカスに依らない)、読み出しは AsyncGPUReadback、
@@ -70,6 +72,8 @@ public class CapCycleRecorder : MonoBehaviour
         public string ros_ip;             // 空でなければ ROS-TCP の接続先をこれに (ROSConnectionPrefab は変えない)
         public int ros_port;              // 0 なら prefab のまま
         public string soil_particles;     // off | on | 空 (シーンのまま)
+        public bool soil_selftest;        // 起動の 3 s 後に土の自己試験 (CapSoilSelfTest: Linux 版の GPU で地形が掘れるか)
+        public bool soil_selftest_quit;   // その後に終わる (合格 0、不合格 3)
     }
 
     [Serializable]
@@ -131,6 +135,12 @@ public class CapCycleRecorder : MonoBehaviour
             PointRos(cfg.ros_ip, cfg.ros_port);
             SoilParticles(cfg.soil_particles);
             DumpTerrain(cfg.terrain_dump);
+            if (cfg.soil_selftest)
+            {
+                var check = new GameObject(nameof(CapSoilSelfTest));
+                DontDestroyOnLoad(check);
+                check.AddComponent<CapSoilSelfTest>().quitAfter = cfg.soil_selftest_quit;
+            }
         }
         catch (Exception e)
         {
