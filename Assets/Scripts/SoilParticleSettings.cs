@@ -457,6 +457,15 @@ public class SoilParticleSettings : MonoBehaviour
     private void Start()
     {
         var terrainData = gameObject.GetComponent<Terrain>().terrainData;
+        // Unity 2022.3.4f1's Vulkan breaks the terrain's soil (each dig writes the terrain's bottom into a 20x20 patch
+        // around it, and a -batchmode Vulkan device is not even made on leo): the soil off, said loudly - run the player
+        // with -force-glcore (CAP's run.sh does). A comparison of the working heights made from the CPU would not see it.
+        if (enable && SystemInfo.graphicsDeviceType == UnityEngine.Rendering.GraphicsDeviceType.Vulkan)
+        {
+            Debug.LogError("[SoilParticleSettings] Vulkan breaks the terrain's soil on this Unity: the soil is off " +
+                           "(run with -force-glcore)");
+            enable = false;
+        }
 
         originalHeights = terrainData.GetHeights(0, 0, terrainData.heightmapResolution, terrainData.heightmapResolution);
 
@@ -693,7 +702,11 @@ public class SoilParticleSettings : MonoBehaviour
                     var posYInTerrain = (int)(relpos.z / terrainData.size.z * yRes);
                     RectInt rect = new RectInt(posXInTerrain - 30, posYInTerrain - 30, 60, 60);
                     if (!tiler) {
-                        terrainData.CopyActiveRenderTextureToHeightmap(rect, rect.min, TerrainHeightmapSyncControl.None);
+                        // Within the terrain (a machine within 30 texels of its edge threw every step, and the sync
+                        // and the swap never came again: the colliders and the LiDAR on a terrain that never changed)
+                        rect = ClampRectToBounds(rect, xRes, yRes);
+                        if (rect.width > 0 && rect.height > 0)
+                            terrainData.CopyActiveRenderTextureToHeightmap(rect, rect.min, TerrainHeightmapSyncControl.None);
                     } else {
                         // in case if the terrain is tiled
                         CopyActiveRenderTextureToHeightmapTiled(rect, base_link.transform.position);

@@ -4,6 +4,7 @@ using System.Linq;
 using UnityEditor;
 using UnityEditor.Build.Reporting;
 using UnityEngine;
+using UnityEngine.Rendering;
 
 namespace CapKit.Editor
 {
@@ -39,7 +40,22 @@ namespace CapKit.Editor
                 targetGroup = BuildTargetGroup.Standalone,
                 options = BuildOptions.None,
             };
-            BuildReport report = BuildPipeline.BuildPlayer(options);
+            // OpenGL Core only: Unity 2022.3.4f1's Vulkan breaks the terrain's soil, and an automatic choice takes
+            // Vulkan first on Linux - the project's own setting put back after the build
+            bool automatic = PlayerSettings.GetUseDefaultGraphicsAPIs(BuildTarget.StandaloneLinux64);
+            GraphicsDeviceType[] apis = PlayerSettings.GetGraphicsAPIs(BuildTarget.StandaloneLinux64);
+            BuildReport report;
+            try
+            {
+                PlayerSettings.SetUseDefaultGraphicsAPIs(BuildTarget.StandaloneLinux64, false);
+                PlayerSettings.SetGraphicsAPIs(BuildTarget.StandaloneLinux64, new[] { GraphicsDeviceType.OpenGLCore });
+                report = BuildPipeline.BuildPlayer(options);
+            }
+            finally
+            {
+                PlayerSettings.SetGraphicsAPIs(BuildTarget.StandaloneLinux64, apis);
+                PlayerSettings.SetUseDefaultGraphicsAPIs(BuildTarget.StandaloneLinux64, automatic);
+            }
             var summary = report.summary;
             Debug.Log($"[CapBuild] {summary.result}: {summary.outputPath}, {summary.totalSize / 1e6:F0} MB in " +
                       $"{summary.totalTime.TotalSeconds:F0} s, {summary.totalErrors} errors, {summary.totalWarnings} warnings " +

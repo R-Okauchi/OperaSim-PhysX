@@ -16,7 +16,9 @@ Unity -batchmode -quit -buildTarget Linux64 -projectPath . -executeMethod CapKit
   イメージの作りまでを通す。
 - 設定はエディタの通しと同じ `CapCycleRecorder` の JSON (`CAP_UNITY_RECORD_CONFIG`: ROS-TCP の接続先、機体の置き直し、
   `soil_particles`)。シーンのファイルとプロジェクトの設定は変えない。
-- 地形の土は計算 shader を使うので、GPU の device が要る: `-nographics` にしない。`-batchmode -force-vulkan` (GPU)、
-  画面の無い所は Xvfb と Mesa のソフトの OpenGL。
+- 地形の土は計算 shader を使うので、GPU の device が要る: `-nographics` にしない。**OpenGL Core だけ** (`-force-glcore`):
+  画面の無い所は Xvfb と Mesa のソフトの OpenGL (CAP の `hardware/opera/unity_linux/run.sh` の既定)。**2022.3.4f1 の Vulkan では
+  土が壊れる** (掘るたびに地形の底が 20×20 に写る。`-batchmode` の Vulkan は leo では device も作れない): 書き出しは Linux の
+  描画の API を OpenGL Core に固定し (`CapBuild`)、それでも Vulkan で起きれば `SoilParticleSettings` が土を切って LogError を出す。
 - 自己試験: 設定に `"soil_selftest": true, "soil_selftest_quit": true` → 起動の 3 s 後に遠くで 20 回掘り 0.3 m3 置いて地形の体積で
   確かめ、ログに `[CapSoilSelfTest] PASS|FAIL ...` (GPU の名前と計算 shader の有無も)、合格 0・不合格 3 で終わる (`CapSoilSelfTest`)。
