@@ -28,10 +28,24 @@ public static class CapSoilGeometry
         public bool known;        // false: 当たり判定の外形からの見積もり
     }
 
+    private static readonly string[] Kinds = { "mst110cr", "ic120", "c30r", "zx200", "zx120", "zx135u" };
+
+    /// <summary>機体の型: シーンの名前の頭の型 ("zx200(Clone)"・"mst110cr_2" も。Codex soil #7: 複製の名前で容量が 0.8 から
+    /// 0.5 に、荷台は見積もりに落ちた)。知らなければ名前のまま。</summary>
+    public static string Kind(string machine)
+    {
+        string name = (machine ?? "").ToLowerInvariant();
+        foreach (var kind in Kinds)
+        {
+            if (name.StartsWith(kind)) return kind;
+        }
+        return name;
+    }
+
     /// <summary>機体ごとのバケットの容量 [m3] (山積み): CAP の機体の設定 (zx200 0.8、zx120 0.5) と同じ。</summary>
     public static float BucketCapacityM3(string machine)
     {
-        switch (machine)
+        switch (Kind(machine))
         {
             case "zx200": return 0.8f;
             case "zx120": return 0.5f;
@@ -49,11 +63,12 @@ public static class CapSoilGeometry
     ///             上がる板 → z 0.1–3.05、1.77 × 0.54 × 2.95 ≈ 2.8 m3
     ///   c30r:     床の見た目は y 0.17 だが、当たり判定は荷台の上を y 0.93 で塞ぐ箱 (下向きの光線 9 本とも 0.935 で当たる)
     ///             → その上に載せる: 壁 x ±0.68、z −0.15–1.3、y 0.93–1.36 → 1.36 × 0.43 × 1.45 ≈ 0.85 m3
-    /// 知らない荷台は当たり判定の外形から (幅と長さを 90 %、床を下から 15 %、縁を 60 % の高さ、容量はその箱の 80 %)。
+    /// 知らない荷台は当たり判定の外形から (幅と長さを 90 %、床を下から 15 %、縁を 60 % の高さ、容量はその箱の 80 %): 外形は
+    /// 荷台の座標での当たり判定の点 (箱の 8 隅・メッシュの頂点: 世界の外形の対角 2 点では、回った荷台の幅がほぼ 0 になった)。
     /// </summary>
     public static Bed BedOf(string machine, Transform vessel)
     {
-        switch (machine)
+        switch (Kind(machine))
         {
             case "mst110cr":
                 return new Bed { min = new Vector3(-1.32f, 0.19f, -0.45f), max = new Vector3(1.32f, 0.81f, 2.3f), capacityM3 = 4.0f, known = true };
@@ -66,10 +81,8 @@ public static class CapSoilGeometry
         Vector3 lo = Vector3.zero, hi = Vector3.zero;
         foreach (var c in vessel.GetComponentsInChildren<Collider>())
         {
-            var b = c.bounds;
-            foreach (var p in new[] { b.min, b.max })
+            foreach (var q in OutlinePoints(c, vessel))
             {
-                var q = vessel.InverseTransformPoint(p);
                 if (!any) { lo = q; hi = q; any = true; }
                 lo = Vector3.Min(lo, q);
                 hi = Vector3.Max(hi, q);
@@ -183,7 +196,20 @@ public static class CapSoilGeometry
         return mouth;
     }
 
-    /// <summary>当たり判定の点 (frame の座標): メッシュは頂点、箱は 8 隅、他は外形の 2 隅。</summary>
+    /// <summary>from から真下への光線の当たり全部 (buffer は足りなければ広げる: 満杯の結果は近い順とは限らず、荷台や地面が
+    /// 抜けた: Codex soil #5)。数を返す。</summary>
+    public static int CastDown(Vector3 from, float distance, ref RaycastHit[] buffer, QueryTriggerInteraction triggers)
+    {
+        while (true)
+        {
+            int n = Physics.RaycastNonAlloc(from, Vector3.down, buffer, distance, Physics.DefaultRaycastLayers, triggers);
+            if (n < buffer.Length || buffer.Length >= 8192)
+                return n;
+            buffer = new RaycastHit[buffer.Length * 2];
+        }
+    }
+
+    /// <summary>当たり判定の点 (frame の座標): メッシュは頂点、箱は 8 隅、他は外形の 2 隅 (バケットの口の重心はこれで)。</summary>
     public static IEnumerable<Vector3> ColliderPoints(Collider c, Transform frame)
     {
         if (c is MeshCollider mc && mc.sharedMesh != null && mc.sharedMesh.isReadable)
@@ -203,6 +229,24 @@ public static class CapSoilGeometry
             var b = c.bounds;
             yield return frame.InverseTransformPoint(b.min);
             yield return frame.InverseTransformPoint(b.max);
+        }
+    }
+
+    /// <summary>当たり判定の外形の点 (frame の座標): メッシュは頂点、箱は 8 隅、他は世界の外形の 8 隅 - 回った frame でも
+    /// 外形を包む (対角 2 点は包まない)。</summary>
+    public static IEnumerable<Vector3> OutlinePoints(Collider c, Transform frame)
+    {
+        if ((c is MeshCollider mc && mc.sharedMesh != null && mc.sharedMesh.isReadable) || c is BoxCollider)
+        {
+            foreach (var p in ColliderPoints(c, frame)) yield return p;
+            yield break;
+        }
+        var b = c.bounds;
+        for (int i = 0; i < 8; i++)
+        {
+            yield return frame.InverseTransformPoint(new Vector3((i & 1) == 0 ? b.min.x : b.max.x,
+                                                                 (i & 2) == 0 ? b.min.y : b.max.y,
+                                                                 (i & 4) == 0 ? b.min.z : b.max.z));
         }
     }
 

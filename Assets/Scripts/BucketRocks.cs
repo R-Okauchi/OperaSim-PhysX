@@ -54,11 +54,10 @@ public class BucketRocks : MonoBehaviour
     private float capacity;
     private double lastDig = double.NegativeInfinity;
     private readonly ContactPoint[] contacts = new ContactPoint[16];
-    private readonly RaycastHit[] hits = new RaycastHit[128];   // the excavator's own boxes come first (some 50)
+    private RaycastHit[] hits = new RaycastHit[128];             // the excavator's own boxes come first (some 50): grown
     private readonly Dictionary<string, float> session = new Dictionary<string, float>();
     private float sessionDug;
     private double lastPour = double.NegativeInfinity;
-    private bool warnedFull;
 
     private void Start()
     {
@@ -85,14 +84,19 @@ public class BucketRocks : MonoBehaviour
 
     private void OnCollisionStay(Collision other)
     {
-        if (soil == null)
+        // With particles, upstream's way: the manager itself, whether or not this one has started - collisions reach a
+        // disabled MonoBehaviour, whose Start has not run (Codex soil #3: a bucket disabled at the start made no particle
+        // ever). Without them the bucket's own state (its mouth, its capacity) is Start's: none dug before it.
+        var manager = soil != null ? soil : SoilParticleSettings.instance;
+        if (manager == null)
             return;
-        if (soil.particles)
+        if (manager.particles)
         {
-            soil.OnBucketCollision(other, transform.position);
+            manager.OnBucketCollision(other, transform.position);
             return;
         }
-        Dig(other);
+        if (soil != null)
+            Dig(other);
     }
 
     /// <summary>今の口の向きで持てる量 [m3]</summary>
@@ -172,16 +176,13 @@ public class BucketRocks : MonoBehaviour
         }
     }
 
-    /// <summary>口から真下へ: 最初に当たる荷台か地面へ (自分の機体と他の物は素通り)。</summary>
+    /// <summary>口から真下へ: 最初に当たる荷台か地面へ (自分の機体と他の物は素通り)。光線は口の 2 m 上から (荷台の縁の
+    /// 内に沈んだ口でも床に当たる) だが、口より MouthAboveM 上の荷台は拾わない (Codex soil #4: 口の上の荷台の床へ移した)。
+    /// 光線の当たりは全部を見てから決める (128 で切ると荷台や地面が抜けた: #5)。地面に置けなかった分は行き先なし。</summary>
     private void Drop(float volume)
     {
-        Vector3 from = SpillPoint() + Vector3.up * 2f;
-        int n = Physics.RaycastNonAlloc(from, Vector3.down, hits, 60f, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Collide);
-        if (n == hits.Length && !warnedFull)
-        {
-            warnedFull = true;
-            Debug.LogWarning($"[CapSoil] {machine.name} bucket: {n} colliders under its mouth - some may be missed");
-        }
+        Vector3 spill = SpillPoint();
+        int n = CapSoilGeometry.CastDown(spill + Vector3.up * 2f, 62f, ref hits, QueryTriggerInteraction.Collide);
         System.Array.Sort(hits, 0, n, HitDistance.Instance);
         for (int i = 0; i < n; i++)
         {
@@ -191,6 +192,8 @@ public class BucketRocks : MonoBehaviour
             var bed = CapBedLoad.Of(col);
             if (bed != null)
             {
+                if (hits[i].point.y > spill.y + MouthAboveM)
+                    continue;                                  // a bed above the mouth: the soil falls past it
                 bed.Add(volume);
                 ToBedsM3 += volume;
                 Count(bed.MachineName, volume);
@@ -198,15 +201,23 @@ public class BucketRocks : MonoBehaviour
             }
             if (col is TerrainCollider)
             {
-                soil.Deposit(hits[i].point, volume, spreadM);
-                ToGroundM3 += volume;
-                Count("ground", volume);
+                float placed = soil.Deposit(hits[i].point, volume, spreadM);
+                ToGroundM3 += placed;
+                Count("ground", placed);
+                if (volume - placed > 1e-7f)
+                {
+                    LostM3 += volume - placed;                 // off the terrain's edge or its heights
+                    Count("nowhere", volume - placed);
+                }
                 return;
             }
         }
         LostM3 += volume;
         Count("nowhere", volume);
     }
+
+    // A bed's hit this far above the mouth is over it (the mouth sunk this far below a rim still meets its floor)
+    private const float MouthAboveM = 0.3f;
 
     private void Count(string where, float volume)
     {

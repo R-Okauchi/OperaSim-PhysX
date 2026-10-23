@@ -63,6 +63,10 @@ namespace CapKit.Tests
             Assert.IsNotNull(bed, "no CapBedLoad on mst110cr's vessel");
             Assert.AreEqual(4.0f, bed.CapacityM3, 1e-6f);
             Assert.AreEqual(0, Object.FindObjectsOfType<RockObjectDetector>().Length, "particles made");
+            // a machine's kind by its name's start (Codex soil #7: "zx200(Clone)" fell to 0.5 m3 and an estimated bed)
+            Assert.AreEqual("zx200", CapSoilGeometry.Kind("zx200(Clone)"));
+            Assert.AreEqual(0.8f, CapSoilGeometry.BucketCapacityM3("zx200(Clone)"), 1e-6f);
+            Assert.IsTrue(CapSoilGeometry.BedOf("mst110cr_2", bed.transform).known, "a second mst110cr's bed");
             foreach (var (name, x, z) in new[] { ("zx120", -40f, -40f), ("ic120", -40f, 40f), ("c30r", 40f, 40f) })
             {
                 var go = GameObject.Find(name);
@@ -82,11 +86,36 @@ namespace CapKit.Tests
             float v1 = Volume(terrain, far, 20);
             Log($"B: 20 digs {v0 - v1:F4} m3 out of the terrain, expected {20 * soil.DigUnitM3:F4}");
             Assert.AreEqual(20 * soil.DigUnitM3, v0 - v1, 0.02f * 20 * soil.DigUnitM3, "20 digs");
-            soil.Deposit(far, 0.3f, 0.35f);
+            // a deep pit's slides on the working heightmap reach the terrain, nothing of CAP's near (Codex soil #2: copied
+            // only around the machines and each change's 20x20, a slide after the last dig never came): 60 digs in one
+            // place, its walls far past the angle of repose
+            var pit = far + new Vector3(8f, 0f, 0f);
+            for (int i = 0; i < 60; i++)
+                soil.DigUnit(pit, 1f);
+            yield return new WaitForSeconds(6.0f);
+            float worst = 0f;
+            for (int dx = -8; dx <= 8; dx++)
+                for (int dz = -8; dz <= 8; dz++)
+                {
+                    var (gpu, cpu) = soil.HeightmapTexel(pit + new Vector3(dx, 0f, dz) * 0.2f);
+                    worst = Mathf.Max(worst, Mathf.Abs(gpu - cpu) / (32766f / 65535f) * terrain.terrainData.size.y);
+                }
+            Log($"B: a deep pit 6 s on: the terrain {worst:F4} m off the working heights at most");
+            Assert.Less(worst, 0.005f, "the pit's slides not on the terrain");
+            float v1b = Volume(terrain, far, 20);
+            Assert.AreEqual(v1, v1b, 0.02f * 20 * soil.DigUnitM3, "the slides moved soil out of the square");
+            float placed = soil.Deposit(far, 0.3f, 0.35f);
             yield return Steps(3);
             float v2 = Volume(terrain, far, 20);
-            Log($"B: a 0.3 m3 deposit {v2 - v1:F4} m3 into the terrain");
-            Assert.AreEqual(0.3f, v2 - v1, 0.006f, "deposit");
+            Log($"B: a 0.3 m3 deposit ({placed:F3} placed) {v2 - v1b:F4} m3 into the terrain");
+            Assert.AreEqual(0.3f, placed, 1e-5f, "the deposit not placed");
+            Assert.AreEqual(0.3f, v2 - v1b, 0.006f, "deposit");
+            // at the terrain's edge nothing moves, and the caller is told (Codex soil #1: the requested volume returned)
+            var size = terrain.terrainData.size;
+            Vector3 edge = terrain.transform.position + new Vector3(0.05f, 0f, size.z / 2f);
+            Assert.AreEqual(0f, soil.DigUnit(edge, 1f), 1e-9f, "a dig at the terrain's edge");
+            Assert.AreEqual(0f, soil.Deposit(edge, 0.05f, 0f), 1e-9f, "a deposit at the terrain's edge");
+            Assert.AreEqual(0f, soil.DigUnit(terrain.transform.position - new Vector3(5f, 0f, 5f), 1f), 1e-9f, "off the terrain");
 
             // ---- E: the bucket over the bed, opened: all of it in the bed
             var joints = zx200.GetComponentsInChildren<ArticulationBody>().ToDictionary(a => a.name);

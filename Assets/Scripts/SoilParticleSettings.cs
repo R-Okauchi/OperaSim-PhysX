@@ -153,6 +153,13 @@ public class SoilParticleSettings : MonoBehaviour
 
     private TerrainTiler tiler = null;
 
+    // Where the soil has changed (each change's copy rect, DirtyMargin texels wider), copied to the terrain every syncPeriod
+    // with the robots' rects: the thermal erosion runs over the whole working heightmap, and its slides around a change
+    // away from the machines reached the terrain only in part - a later change's 20x20 copy took them on one side of its
+    // edge and not the other (Codex soil #2)
+    private RectInt dirty = new RectInt(0, 0, 0, 0);
+    private const int DirtyMargin = 30;
+
     /// <summary>
     /// 1 回の掘削 (ModifyTerrain の diff = 粒子の体積) が地形から取る量 [m3]。Dig.compute は 3×3 の高さの点に
     /// diff / 9 / 2.5 を高さの texture の尺度 (正規化した高さ × 32766/65535) で足すので、1 点あたり
@@ -318,28 +325,66 @@ public class SoilParticleSettings : MonoBehaviour
         return (gpu, terrainData.GetHeights(x, y, 1, 1)[0, 0] * (32766f / 65535f));
     }
 
-    /// <summary>粒子なしの掘削: point で地形を最大 1 回分 (DigUnitM3) 下げ、下げた量 [m3] を返す (room [m3] まで)。</summary>
+    /// <summary>粒子なしの掘削: point で地形を最大 1 回分 (DigUnitM3) 下げ、下げた量 [m3] を返す (room [m3] まで)。地形の端
+    /// (3×3 の高さの点が地形の外にかかる) や高さの下限を越える所では掘らず 0 (Codex soil #1: GPU の書き込みは端で落ち、
+    /// 地形は高さの範囲で切れるのに、要求の量を返していた)。</summary>
     public float DigUnit(Vector3 point, float room)
     {
         if (!enable || room <= 0f || DigUnitM3 <= 0f)
             return 0f;
         float take = Mathf.Min(room, DigUnitM3);
-        ModifyTerrain(point, -particle_volume * take / DigUnitM3);
+        float diff = -particle_volume * take / DigUnitM3;
+        if (!Applies(point, diff))
+            return 0f;
+        ModifyTerrain(point, diff);
         return take;
     }
 
-    /// <summary>粒子なしで落ちた土: volume [m3] を point の周り (正規分布 σ = spread [m]、2σ で切る) に 1 回分ずつ置く。</summary>
-    public void Deposit(Vector3 point, float volume, float spread)
+    /// <summary>粒子なしで落ちた土: volume [m3] を point の周り (正規分布 σ = spread [m]、2σ で切る) に 1 回分ずつ置き、
+    /// 置けた量 [m3] を返す (地形の外・高さの上限で置けない分、土の切られた間は 0: 呼ぶ側が行き先なしに数える)。</summary>
+    public float Deposit(Vector3 point, float volume, float spread)
     {
         if (!enable || DigUnitM3 <= 0f)
-            return;
+            return 0f;
+        float placed = 0f;
         while (volume > 1e-7f)
         {
             float part = Mathf.Min(volume, DigUnitM3);
+            float diff = particle_volume * part / DigUnitM3;
             Vector2 o = CapSoilGeometry.Gaussian2(spread);
-            ModifyTerrain(point + new Vector3(o.x, 0f, o.y), particle_volume * part / DigUnitM3);
+            Vector3 at = point + new Vector3(o.x, 0f, o.y);
+            if (!Applies(at, diff))
+                at = point;                                  // the spread's tail off the terrain: at the point itself
+            if (Applies(at, diff))
+            {
+                ModifyTerrain(at, diff);
+                placed += part;
+            }
             volume -= part;
         }
+        return placed;
+    }
+
+    /// <summary>Whether a change of ``diff`` at ``point`` lands whole: its 3x3 heights inside the terrain and each within
+    /// the terrain's heights [0, size.y] after it (the CPU copy's: the GPU's near a change, synced every step).</summary>
+    private bool Applies(Vector3 point, float diff)
+    {
+        var terrainData = GetComponent<Terrain>().terrainData;
+        Vector3 relpos = point - transform.position;
+        int px = Mathf.RoundToInt(relpos.x / terrainData.size.x * (xRes - 1));
+        int py = Mathf.RoundToInt(relpos.z / terrainData.size.z * (yRes - 1));
+        if (px < 1 || py < 1 || px > xRes - 2 || py > yRes - 2)
+            return false;
+        if (tiler)
+            return true;                                    // the tiles hold the heights: their range not read here
+        float perPoint = diff / 22.5f / (32766f / 65535f);  // Dig.compute's change at each point, in normalized height
+        float[,] h = terrainData.GetHeights(px - 1, py - 1, 3, 3);
+        foreach (float v in h)
+        {
+            if (v + perPoint < 0f || v + perPoint > 1f)
+                return false;
+        }
+        return true;
     }
 
     public void OnRockTerrainCollision(GameObject rock)
@@ -568,6 +613,9 @@ public class SoilParticleSettings : MonoBehaviour
             RenderTexture.active = prevRT;
             return;
         }
+        var wide = ClampRectToBounds(new RectInt(rect.x - DirtyMargin, rect.y - DirtyMargin, rect.width + 2 * DirtyMargin,
+                                                 rect.height + 2 * DirtyMargin), xRes, yRes);
+        dirty = dirty.width <= 0 ? wide : Union(dirty, wide);
         if (!tiler) {
             terrainData.CopyActiveRenderTextureToHeightmap(rect, rect.min, TerrainHeightmapSyncControl.None);
         } else {
@@ -634,6 +682,13 @@ public class SoilParticleSettings : MonoBehaviour
         if (w <= 0 || h <= 0)
             return new RectInt(0, 0, 0, 0);
         return new RectInt(xMin, yMin, w, h);
+    }
+
+    private static RectInt Union(RectInt a, RectInt b)
+    {
+        int xMin = Mathf.Min(a.x, b.x), yMin = Mathf.Min(a.y, b.y);
+        int xMax = Mathf.Max(a.x + a.width, b.x + b.width), yMax = Mathf.Max(a.y + a.height, b.y + b.height);
+        return new RectInt(xMin, yMin, xMax - xMin, yMax - yMin);
     }
 
     private static RectInt IntersectRect(RectInt a, RectInt b)
@@ -712,6 +767,14 @@ public class SoilParticleSettings : MonoBehaviour
                         CopyActiveRenderTextureToHeightmapTiled(rect, base_link.transform.position);
                     }
                 }
+            }
+            if (dirty.width > 0 && dirty.height > 0)
+            {
+                // where the soil changed: its erosion's slides reach the terrain whole, wherever the machines are
+                if (!tiler)
+                    terrainData.CopyActiveRenderTextureToHeightmap(dirty, dirty.min, TerrainHeightmapSyncControl.None);
+                else
+                    CopyActiveRenderTextureToHeightmapTiled(dirty, transform.position);
             }
 
             timeElapsed = 0.0f;
