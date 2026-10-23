@@ -90,8 +90,12 @@ namespace CapKit.Tests
             // only around the machines and each change's 20x20, a slide after the last dig never came): 60 digs in one
             // place, its walls far past the angle of repose
             var pit = far + new Vector3(8f, 0f, 0f);
+            float p0 = Volume(terrain, pit, 20);
             for (int i = 0; i < 60; i++)
                 soil.DigUnit(pit, 1f);
+            yield return Steps(3);
+            float p1 = Volume(terrain, pit, 20);
+            Assert.AreEqual(60 * soil.DigUnitM3, p0 - p1, 0.02f * 60 * soil.DigUnitM3, "60 digs in one place");
             yield return new WaitForSeconds(6.0f);
             float worst = 0f;
             for (int dx = -8; dx <= 8; dx++)
@@ -102,8 +106,10 @@ namespace CapKit.Tests
                 }
             Log($"B: a deep pit 6 s on: the terrain {worst:F4} m off the working heights at most");
             Assert.Less(worst, 0.005f, "the pit's slides not on the terrain");
+            float p2 = Volume(terrain, pit, 20);
+            Log($"B: the pit's slides moved {p2 - p1:+0.0000;-0.0000} m3 in its square");
+            Assert.AreEqual(p1, p2, 0.02f * 60 * soil.DigUnitM3, "the pit's slides made or lost soil");
             float v1b = Volume(terrain, far, 20);
-            Assert.AreEqual(v1, v1b, 0.02f * 20 * soil.DigUnitM3, "the slides moved soil out of the square");
             float placed = soil.Deposit(far, 0.3f, 0.35f);
             yield return Steps(3);
             float v2 = Volume(terrain, far, 20);
@@ -116,6 +122,18 @@ namespace CapKit.Tests
             Assert.AreEqual(0f, soil.DigUnit(edge, 1f), 1e-9f, "a dig at the terrain's edge");
             Assert.AreEqual(0f, soil.Deposit(edge, 0.05f, 0f), 1e-9f, "a deposit at the terrain's edge");
             Assert.AreEqual(0f, soil.DigUnit(terrain.transform.position - new Vector3(5f, 0f, 5f), 1f), 1e-9f, "off the terrain");
+            // by the far edges (the last row and column were never eroded: a dig there came and went between the two
+            // working heightmaps - review of c89fa14)
+            int res = terrain.terrainData.heightmapResolution;
+            Vector3 high = terrain.transform.position + new Vector3((res - 2f) / (res - 1) * size.x, 0f, size.z / 2f);   // px 511
+            float e0 = Volume(terrain, high, 6);
+            for (int i = 0; i < 10; i++)
+                Assert.AreEqual(soil.DigUnitM3, soil.DigUnit(high, 1f), 1e-7f, "a dig a texel from the far edge");
+            yield return Steps(3);
+            yield return new WaitForSeconds(2.5f);
+            float e1 = Volume(terrain, high, 6);
+            Log($"B: 10 digs by the far edge {e0 - e1:F4} m3 out of the terrain, expected {10 * soil.DigUnitM3:F4}");
+            Assert.AreEqual(10 * soil.DigUnitM3, e0 - e1, 0.03f * 10 * soil.DigUnitM3, "the digs by the far edge");
 
             // ---- E: the bucket over the bed, opened: all of it in the bed
             var joints = zx200.GetComponentsInChildren<ArticulationBody>().ToDictionary(a => a.name);
@@ -175,11 +193,29 @@ namespace CapKit.Tests
             vessel.xDrive = drive;
             yield return new WaitForSeconds(5.0f);
             float g0 = bed.ToGroundM3;
+            var under0 = Heights(terrain, mst.position, 40);
             bed.Add(bed.CapacityM3 + 0.5f);
             yield return new WaitForSeconds(2.0f);
+            yield return Steps(3);
             Log($"G: {bed.CapacityM3 + 0.5f:F2} m3 into a level bed: holds {bed.VolumeM3:F3}, {bed.ToGroundM3 - g0:F3} m3 over the rim");
             Assert.AreEqual(bed.CapacityM3, bed.VolumeM3, 0.02f, "the bed past its capacity");
             Assert.AreEqual(0.5f, bed.ToGroundM3 - g0, 0.02f, "the excess");
+            // over the rim clear of its own body: nothing raised under the carrier's root box (5 x 5 m: x, z within 2.5 m),
+            // the deposit's own spread too (before, it reached 0.5 m under the box's edge, and B's mound under the carrier's
+            // rear, over the box's top, passed for the ground clear of it)
+            var under1 = Heights(terrain, mst.position, 40);
+            int raisedUnder = 0, raised = 0;
+            float nearest = float.MaxValue;
+            foreach (var (at, dh) in Changed(terrain, under0, under1, 0.002f))
+            {
+                raised++;
+                Vector3 local = mst.InverseTransformPoint(at);
+                nearest = Mathf.Min(nearest, Mathf.Max(Mathf.Abs(local.x), Mathf.Abs(local.z)));
+                if (Mathf.Abs(local.x) < 2.45f && Mathf.Abs(local.z) < 2.45f) raisedUnder++;
+            }
+            Log($"G: {raised} texels raised round the carrier, {raisedUnder} under its body; the nearest {nearest:F2} m out");
+            Assert.Greater(raised, 0, "nothing over the rim");
+            Assert.AreEqual(0, raisedUnder, "soil over the rim under the carrier's own body");
 
             // ---- H: full, on a slope: the load kept (the bed's tilt is its dump's, not the machine's: 10-23 review)
             float h0 = bed.ToGroundM3;
@@ -330,6 +366,36 @@ namespace CapKit.Tests
             double sum = 0;
             foreach (var v in heights) sum += v;
             return (float)(sum * d.size.y * (d.size.x / (res - 1)) * (d.size.z / (res - 1)));
+        }
+
+        /// <summary>The heights [m] in a (2 half + 1) square of heightmap points around a point, with the square's first
+        /// point's indices.</summary>
+        private static (int x0, int z0, float[,] h) Heights(Terrain t, Vector3 world, int half)
+        {
+            var d = t.terrainData;
+            int res = d.heightmapResolution;
+            Vector3 rel = world - t.transform.position;
+            int cx = Mathf.RoundToInt(rel.x / d.size.x * (res - 1)), cz = Mathf.RoundToInt(rel.z / d.size.z * (res - 1));
+            int x0 = Mathf.Clamp(cx - half, 0, res - 1), z0 = Mathf.Clamp(cz - half, 0, res - 1);
+            int w = Mathf.Min(2 * half + 1, res - x0), h = Mathf.Min(2 * half + 1, res - z0);
+            return (x0, z0, d.GetHeights(x0, z0, w, h));
+        }
+
+        /// <summary>The points [world] of two Heights of the same square raised by more than ``min`` [m], and by how much.</summary>
+        private static System.Collections.Generic.IEnumerable<(Vector3, float)> Changed(
+            Terrain t, (int x0, int z0, float[,] h) a, (int x0, int z0, float[,] h) b, float min)
+        {
+            var d = t.terrainData;
+            int res = d.heightmapResolution;
+            for (int z = 0; z < a.h.GetLength(0); z++)
+                for (int x = 0; x < a.h.GetLength(1); x++)
+                {
+                    float dh = (b.h[z, x] - a.h[z, x]) * d.size.y;
+                    if (dh <= min) continue;
+                    var world = t.transform.position + new Vector3((a.x0 + x) / (float)(res - 1) * d.size.x, b.h[z, x] * d.size.y,
+                                                                   (a.z0 + z) / (float)(res - 1) * d.size.z);
+                    yield return (world, dh);
+                }
         }
 
         private static ArticulationDrive WithTarget(ArticulationDrive d, float deg)

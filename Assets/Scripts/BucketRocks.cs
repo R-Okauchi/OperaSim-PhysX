@@ -95,8 +95,8 @@ public class BucketRocks : MonoBehaviour
             manager.OnBucketCollision(other, transform.position);
             return;
         }
-        if (soil != null)
-            Dig(other);
+        if (soil != null && isActiveAndEnabled)
+            Dig(other);                      // disabled after its Start: no pour (FixedUpdate), so no dig either
     }
 
     /// <summary>今の口の向きで持てる量 [m3]</summary>
@@ -176,9 +176,11 @@ public class BucketRocks : MonoBehaviour
         }
     }
 
-    /// <summary>口から真下へ: 最初に当たる荷台か地面へ (自分の機体と他の物は素通り)。光線は口の 2 m 上から (荷台の縁の
-    /// 内に沈んだ口でも床に当たる) だが、口より MouthAboveM 上の荷台は拾わない (Codex soil #4: 口の上の荷台の床へ移した)。
-    /// 光線の当たりは全部を見てから決める (128 で切ると荷台や地面が抜けた: #5)。地面に置けなかった分は行き先なし。</summary>
+    /// <summary>口から真下へ: 自分の機体の外で最初に当たる物へ - 荷台なら荷台、地面なら地面、他の機体や物なら行き先なし
+    /// (その上に落ちて地形には入らない: 素通りすると運搬車の車体の下の地面が上がった)。光線は口の 2 m 上から (荷台の縁の
+    /// 内に沈んだ口でも床に当たる) だが、口より MouthAboveM 上の物は素通り (Codex soil #4: 口の上の荷台の床へ移した)。
+    /// トリガーは荷台の盛りの他は数えない。光線の当たりは全部を見てから決める (128 で切ると荷台や地面が抜けた: #5)。
+    /// 地面に置けなかった分は行き先なし。</summary>
     private void Drop(float volume)
     {
         Vector3 spill = SpillPoint();
@@ -189,18 +191,9 @@ public class BucketRocks : MonoBehaviour
             var col = hits[i].collider;
             if (col.transform.IsChildOf(machine))
                 continue;
-            var bed = CapBedLoad.Of(col);
-            if (bed != null)
-            {
-                if (hits[i].point.y > spill.y + MouthAboveM)
-                    continue;                                  // a bed above the mouth: the soil falls past it
-                bed.Add(volume);
-                ToBedsM3 += volume;
-                Count(bed.MachineName, volume);
-                return;
-            }
             if (col is TerrainCollider)
             {
+                // the ground (over a mouth sunk in a dig too: the soil back on it)
                 float placed = soil.Deposit(hits[i].point, volume, spreadM);
                 ToGroundM3 += placed;
                 Count("ground", placed);
@@ -211,6 +204,17 @@ public class BucketRocks : MonoBehaviour
                 }
                 return;
             }
+            if (hits[i].point.y > spill.y + MouthAboveM)
+                continue;                                      // above the mouth (a bed's floor too): the soil falls past it
+            var bed = CapBedLoad.Of(col);
+            if (bed == null && col.isTrigger)
+                continue;                                      // a volume, not a thing: soil falls through it
+            if (bed == null)
+                break;                                         // on another machine or thing: nowhere
+            bed.Add(volume);
+            ToBedsM3 += volume;
+            Count(bed.MachineName, volume);
+            return;
         }
         LostM3 += volume;
         Count("nowhere", volume);

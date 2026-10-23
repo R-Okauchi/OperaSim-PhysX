@@ -153,12 +153,14 @@ public class SoilParticleSettings : MonoBehaviour
 
     private TerrainTiler tiler = null;
 
-    // Where the soil has changed (each change's copy rect, DirtyMargin texels wider), copied to the terrain every syncPeriod
-    // with the robots' rects: the thermal erosion runs over the whole working heightmap, and its slides around a change
-    // away from the machines reached the terrain only in part - a later change's 20x20 copy took them on one side of its
-    // edge and not the other (Codex soil #2)
-    private RectInt dirty = new RectInt(0, 0, 0, 0);
-    private const int DirtyMargin = 30;
+    // Where the soil has changed - the DirtyBlock-texel blocks within DirtyMarginM of each change - copied to the terrain
+    // every syncPeriod with the robots' rects: the thermal erosion runs over the whole working heightmap, and its slides
+    // around a change away from the machines reached the terrain only in part (a later change's 20x20 copy took them on
+    // one side of its edge and not the other: Codex soil #2). Blocks, not one bounding rect: a rect spanning two work
+    // sites copied the scene's own steep walls between them, eroding since the start, all at once (review of c89fa14)
+    private readonly HashSet<int> dirtyBlocks = new HashSet<int>();
+    private const int DirtyBlock = 16;
+    private const float DirtyMarginM = 6f;
 
     /// <summary>
     /// 1 回の掘削 (ModifyTerrain の diff = 粒子の体積) が地形から取る量 [m3]。Dig.compute は 3×3 の高さの点に
@@ -340,6 +342,15 @@ public class SoilParticleSettings : MonoBehaviour
         return take;
     }
 
+    /// <summary>How far from its point a deposit of ``spread`` raises the terrain, along either axis: its 2 sigma, and
+    /// the change's 3x3 heights round the nearest one (a texel each way, half a texel of rounding).</summary>
+    public float DepositReach(float spread)
+    {
+        var size = GetComponent<Terrain>().terrainData.size;
+        float texel = xRes > 1 && yRes > 1 ? Mathf.Max(size.x / (xRes - 1), size.z / (yRes - 1)) : 0f;
+        return 2f * spread + 1.5f * texel;
+    }
+
     /// <summary>粒子なしで落ちた土: volume [m3] を point の周り (正規分布 σ = spread [m]、2σ で切る) に 1 回分ずつ置き、
     /// 置けた量 [m3] を返す (地形の外・高さの上限で置けない分、土の切られた間は 0: 呼ぶ側が行き先なしに数える)。</summary>
     public float Deposit(Vector3 point, float volume, float spread)
@@ -366,7 +377,9 @@ public class SoilParticleSettings : MonoBehaviour
     }
 
     /// <summary>Whether a change of ``diff`` at ``point`` lands whole: its 3x3 heights inside the terrain and each within
-    /// the terrain's heights [0, size.y] after it (the CPU copy's: the GPU's near a change, synced every step).</summary>
+    /// the terrain's heights [0, size.y] after it - on the CPU copy, the working heights as of their last copy near the
+    /// point (a change in the same step, or the erosion since, not in it: close to the range's ends it may pass a change
+    /// that is then cut).</summary>
     private bool Applies(Vector3 point, float diff)
     {
         var terrainData = GetComponent<Terrain>().terrainData;
@@ -613,9 +626,7 @@ public class SoilParticleSettings : MonoBehaviour
             RenderTexture.active = prevRT;
             return;
         }
-        var wide = ClampRectToBounds(new RectInt(rect.x - DirtyMargin, rect.y - DirtyMargin, rect.width + 2 * DirtyMargin,
-                                                 rect.height + 2 * DirtyMargin), xRes, yRes);
-        dirty = dirty.width <= 0 ? wide : Union(dirty, wide);
+        MarkDirty(rect, terrainData.size);
         if (!tiler) {
             terrainData.CopyActiveRenderTextureToHeightmap(rect, rect.min, TerrainHeightmapSyncControl.None);
         } else {
@@ -684,11 +695,44 @@ public class SoilParticleSettings : MonoBehaviour
         return new RectInt(xMin, yMin, w, h);
     }
 
-    private static RectInt Union(RectInt a, RectInt b)
+    /// <summary>The blocks within DirtyMarginM of a change's copy rect marked.</summary>
+    private void MarkDirty(RectInt rect, Vector3 size)
     {
-        int xMin = Mathf.Min(a.x, b.x), yMin = Mathf.Min(a.y, b.y);
-        int xMax = Mathf.Max(a.x + a.width, b.x + b.width), yMax = Mathf.Max(a.y + a.height, b.y + b.height);
-        return new RectInt(xMin, yMin, xMax - xMin, yMax - yMin);
+        int mx = Mathf.CeilToInt(DirtyMarginM / (size.x / (xRes - 1)));
+        int my = Mathf.CeilToInt(DirtyMarginM / (size.z / (yRes - 1)));
+        int blocksX = (xRes + DirtyBlock - 1) / DirtyBlock, blocksY = (yRes + DirtyBlock - 1) / DirtyBlock;
+        int bx0 = Mathf.Max(0, rect.x - mx) / DirtyBlock, bx1 = Mathf.Min(xRes - 1, rect.xMax - 1 + mx) / DirtyBlock;
+        int by0 = Mathf.Max(0, rect.y - my) / DirtyBlock, by1 = Mathf.Min(yRes - 1, rect.yMax - 1 + my) / DirtyBlock;
+        for (int by = by0; by <= Mathf.Min(by1, blocksY - 1); by++)
+            for (int bx = bx0; bx <= Mathf.Min(bx1, blocksX - 1); bx++)
+                dirtyBlocks.Add(by * blocksX + bx);
+    }
+
+    /// <summary>The marked blocks as rects, each row's adjoining blocks in one.</summary>
+    private List<RectInt> DirtyRects()
+    {
+        int blocksX = (xRes + DirtyBlock - 1) / DirtyBlock;
+        var rows = new SortedDictionary<int, List<int>>();
+        foreach (int b in dirtyBlocks)
+        {
+            if (!rows.TryGetValue(b / blocksX, out var cols)) rows[b / blocksX] = cols = new List<int>();
+            cols.Add(b % blocksX);
+        }
+        var rects = new List<RectInt>();
+        foreach (var kv in rows)
+        {
+            kv.Value.Sort();
+            int start = kv.Value[0], prev = start;
+            for (int i = 1; i <= kv.Value.Count; i++)
+            {
+                if (i < kv.Value.Count && kv.Value[i] == prev + 1) { prev = kv.Value[i]; continue; }
+                var r = ClampRectToBounds(new RectInt(start * DirtyBlock, kv.Key * DirtyBlock, (prev - start + 1) * DirtyBlock,
+                                                      DirtyBlock), xRes, yRes);
+                if (r.width > 0 && r.height > 0) rects.Add(r);
+                if (i < kv.Value.Count) start = prev = kv.Value[i];
+            }
+        }
+        return rects;
     }
 
     private static RectInt IntersectRect(RectInt a, RectInt b)
@@ -729,7 +773,9 @@ public class SoilParticleSettings : MonoBehaviour
         Vector2 m = new Vector2(Mathf.Tan(jitteredTau.x * Mathf.Deg2Rad), Mathf.Tan(jitteredTau.y * Mathf.Deg2Rad));
         cs.SetVector("angleOfRepose", new Vector4(m.x, m.y, 0.0f, 0.0f));
 
-        cs.Dispatch(thermalKernelIdx, xRes / 32, yRes / 32, 1);
+        // every texel (513 is no multiple of 32: the last row and column were never written, and a dig there came and
+        // went between the two buffers - the kernel leaves out what is past the texture)
+        cs.Dispatch(thermalKernelIdx, (xRes + 31) / 32, (yRes + 31) / 32, 1);
 
         if (timeElapsed >= syncPeriod)
         {
@@ -768,13 +814,13 @@ public class SoilParticleSettings : MonoBehaviour
                     }
                 }
             }
-            if (dirty.width > 0 && dirty.height > 0)
+            // where the soil changed: its erosion's slides reach the terrain whole, wherever the machines are
+            foreach (var rect in DirtyRects())
             {
-                // where the soil changed: its erosion's slides reach the terrain whole, wherever the machines are
                 if (!tiler)
-                    terrainData.CopyActiveRenderTextureToHeightmap(dirty, dirty.min, TerrainHeightmapSyncControl.None);
+                    terrainData.CopyActiveRenderTextureToHeightmap(rect, rect.min, TerrainHeightmapSyncControl.None);
                 else
-                    CopyActiveRenderTextureToHeightmapTiled(dirty, transform.position);
+                    CopyActiveRenderTextureToHeightmapTiled(rect, transform.position);
             }
 
             timeElapsed = 0.0f;

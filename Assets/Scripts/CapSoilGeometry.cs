@@ -37,7 +37,7 @@ public static class CapSoilGeometry
         string name = (machine ?? "").ToLowerInvariant();
         foreach (var kind in Kinds)
         {
-            if (name.StartsWith(kind)) return kind;
+            if (name.StartsWith(kind, System.StringComparison.Ordinal)) return kind;
         }
         return name;
     }
@@ -81,6 +81,8 @@ public static class CapSoilGeometry
         Vector3 lo = Vector3.zero, hi = Vector3.zero;
         foreach (var c in vessel.GetComponentsInChildren<Collider>())
         {
+            if (!c.enabled || c.isTrigger)
+                continue;                                    // a disabled one's bounds are an empty box at the origin
             foreach (var q in OutlinePoints(c, vessel))
             {
                 if (!any) { lo = q; hi = q; any = true; }
@@ -203,11 +205,22 @@ public static class CapSoilGeometry
         while (true)
         {
             int n = Physics.RaycastNonAlloc(from, Vector3.down, buffer, distance, Physics.DefaultRaycastLayers, triggers);
-            if (n < buffer.Length || buffer.Length >= 8192)
+            if (n < buffer.Length)
                 return n;
+            if (buffer.Length >= 8192)
+            {
+                if (!castCapped)
+                {
+                    castCapped = true;
+                    Debug.LogWarning($"[CapSoil] {n} colliders under {from}: some may be missed");
+                }
+                return n;
+            }
             buffer = new RaycastHit[buffer.Length * 2];
         }
     }
+
+    private static bool castCapped;
 
     /// <summary>当たり判定の点 (frame の座標): メッシュは頂点、箱は 8 隅、他は外形の 2 隅 (バケットの口の重心はこれで)。</summary>
     public static IEnumerable<Vector3> ColliderPoints(Collider c, Transform frame)

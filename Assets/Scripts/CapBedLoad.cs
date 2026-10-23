@@ -168,13 +168,15 @@ public class CapBedLoad : MonoBehaviour
             pick = r < sx ? 0 : r < sx + sz ? 2 : 3;                // the rear or a side, by their lengths
         }
         float unit = soil != null && soil.DigUnitM3 > 0f ? soil.DigUnitM3 : volume;
+        const float Spread = 0.15f;
+        float reach = soil != null ? soil.DepositReach(Spread) : 0f;
         while (volume > 1e-7f)
         {
             float part = Mathf.Min(volume, unit);
             Vector3 local = Vector3.Lerp(a[pick], b[pick], Random.value) + outward[pick] * Random.Range(0.1f, 0.8f);
             float placed = 0f;
-            if (soil != null && GroundBelow(ClearOfBody(local, outward[pick]), out Vector3 ground))
-                placed = soil.Deposit(ground, part, 0.15f);       // off the terrain's edge or its heights: not all
+            if (soil != null && GroundBelow(ClearOfBody(local, outward[pick], reach), out Vector3 ground))
+                placed = soil.Deposit(ground, part, Spread);      // off the terrain's edge or its heights: not all
             ToGroundM3 += placed;
             sessionOut += placed;
             LostM3 += part - placed;
@@ -183,36 +185,53 @@ public class CapBedLoad : MonoBehaviour
         }
     }
 
-    /// <summary>Where the soil leaves the rim at ``local`` (the bed's frame), moved on ``outward`` 0.25 m at a time (up to
-    /// 3 m) until nothing of this machine but its bed lies below it: the soil falls clear of its own body - the body let
-    /// through, it went into the ground under the machine's own tracks (Codex soil #6).</summary>
-    private Vector3 ClearOfBody(Vector3 local, Vector3 outward)
+    /// <summary>Where the soil leaves the rim at ``local`` (the bed's frame), moved away from the bed level with the ground
+    /// (``outward`` turned to the world and laid flat: tipped, it would sink instead) 0.25 m at a time, up to 3 m, until
+    /// nothing of this machine but its bed lies below it, nor below the deposit's spread round it (8 points at ``reach``):
+    /// the soil falls clear of its own body - the body let through, it went into the ground under the machine's own tracks
+    /// (Codex soil #6); its spread let through, it reached 0.5 m under the body's edge, and by a corner beside it.</summary>
+    private Vector3 ClearOfBody(Vector3 local, Vector3 outward, float reach)
     {
+        Vector3 p0 = transform.TransformPoint(local);
+        Vector3 away = Vector3.ProjectOnPlane(transform.TransformDirection(outward), Vector3.up);
+        away = away.sqrMagnitude > 1e-6f ? away.normalized : Vector3.zero;
         for (int k = 0; k <= 12; k++)
         {
-            Vector3 p = transform.TransformPoint(local + outward * (0.25f * k));
-            if (!OverOwnBody(p))
+            Vector3 p = p0 + away * (0.25f * k);
+            if (!OverOwnBody(p) && !SpreadOverOwnBody(p, reach))
                 return p;
         }
-        return transform.TransformPoint(local + outward * 3f);
+        return p0 + away * 3f;
     }
 
+    private bool SpreadOverOwnBody(Vector3 p, float reach)
+    {
+        if (reach <= 0f)
+            return false;
+        for (int i = 0; i < 8; i++)
+        {
+            float a = i * Mathf.PI / 4f;
+            if (OverOwnBody(p + new Vector3(Mathf.Cos(a), 0f, Mathf.Sin(a)) * reach))
+                return true;
+        }
+        return false;
+    }
+
+    /// <summary>Whether anything of this machine but its bed lies under ``p`` (from 3 m over it: a ray starting in a collider
+    /// does not meet it), first or not: the ground heaped over the body's own box, or another's part between, the soil would
+    /// go under it all the same (10-23: a mound left under the carrier's rear passed for the ground clear of it).</summary>
     private bool OverOwnBody(Vector3 p)
     {
         if (machine == null)
             return false;
-        int n = CapSoilGeometry.CastDown(p, 10f, ref hits, QueryTriggerInteraction.Ignore);
-        float best = float.MaxValue;
-        Collider first = null;
+        int n = CapSoilGeometry.CastDown(p + Vector3.up * 3f, 13f, ref hits, QueryTriggerInteraction.Ignore);
         for (int i = 0; i < n; i++)
         {
             Collider c = hits[i].collider;
-            if (c == null || hits[i].distance >= best || c.transform.IsChildOf(transform))
-                continue;                                          // the bed itself: not the body
-            best = hits[i].distance;
-            first = c;
+            if (c != null && c.transform.IsChildOf(machine) && !c.transform.IsChildOf(transform))
+                return true;                                       // the bed itself not the body
         }
-        return first != null && first.transform.IsChildOf(machine);
+        return false;
     }
 
     /// <summary>落ちる先: p の真下で最初に当たる物 (この機体の車体と荷台は抜ける。p より上の物 - 荷台の上の腕 - は落ちる
