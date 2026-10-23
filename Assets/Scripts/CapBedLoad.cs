@@ -2,9 +2,10 @@ using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
-/// 粒子なしの土 (SoilParticleSettings.particles = false) の運搬車の荷台: バケットから落ちた量を持ち、荷台が傾くと
-/// (傾きが holdFullDeg までは満杯、holdNoneDeg で 0) 余りを一番低い縁から外の地面へ流す (ダンプ)。平らなまま容量を
-/// 越えた分は縁のどこかから。積んだ量は床の上の箱 (盛り) として見え、LiDAR の光線にも当たる: トリガーの当たり判定を
+/// 粒子なしの土 (SoilParticleSettings.particles = false) の運搬車の荷台: バケットから落ちた量を持ち、荷台がダンプで
+/// 傾くと (ダンプの関節の角が holdFullDeg までは満杯、holdNoneDeg で 0。車体の坂の姿勢は入れない) 余りを一番低い縁 (前の
+/// 縁は除く) から外へ流す: 落ちる先は真下で最初に当たる物 (地面なら地形を上げ、他の機体なら失う。自分の車体は抜ける)。
+/// 平らなまま容量を越えた分は後ろか横の縁から。積んだ量は床の上の箱 (盛り) として見え、LiDAR の光線にも当たる: トリガーの当たり判定を
 /// 荷台とは別の kinematic の体で動かす (荷台の ArticulationBody の質量・重心・慣性に触らない)。
 /// SoilParticleSettings が Start で VesselController の付いたリンクに付ける。
 /// </summary>
@@ -40,6 +41,7 @@ public class CapBedLoad : MonoBehaviour
 
     private SoilParticleSettings soil;
     private Transform machine;
+    private ArticulationBody joint;           // the bed's own joint: its dump
     private CapSoilGeometry.Bed bed;
     private GameObject moundGo;
     private Rigidbody moundBody;
@@ -64,6 +66,7 @@ public class CapBedLoad : MonoBehaviour
     {
         soil = SoilParticleSettings.instance;
         machine = CapSoilGeometry.Machine(transform);
+        joint = GetComponent<ArticulationBody>();
         bed = CapSoilGeometry.BedOf(machine.name, transform);
         if (capacityM3 > 0f)
             bed.capacityM3 = capacityM3;
@@ -92,10 +95,20 @@ public class CapBedLoad : MonoBehaviour
         lastIn = Time.timeAsDouble;
     }
 
+    /// <summary>荷台の傾き [deg]: ダンプの関節の角 (車体に対して)。関節が無ければ親のリンクとの間の角。車体の坂の姿勢は
+    /// 入れない: 世界に対する傾きでは 8° の坂を走るだけで流れ出た (10-23 のレビュー a846 P2-3)。</summary>
+    public float TiltDeg()
+    {
+        if (joint != null && joint.jointType == ArticulationJointType.RevoluteJoint && joint.dofCount > 0)
+            return Mathf.Abs(joint.jointPosition[0]) * Mathf.Rad2Deg;
+        Transform parent = transform.parent;
+        return Vector3.Angle(transform.up, parent != null ? parent.up : Vector3.up);
+    }
+
     /// <summary>今の傾きで持てる量 [m3]</summary>
     public float Holds()
     {
-        float tilt = Vector3.Angle(transform.up, Vector3.up);
+        float tilt = TiltDeg();
         return bed.capacityM3 * Mathf.Clamp01((holdNoneDeg - tilt) / (holdNoneDeg - holdFullDeg));
     }
 
@@ -120,13 +133,14 @@ public class CapBedLoad : MonoBehaviour
         {
             Debug.Log($"[CapSoil] {MachineName} bed flowed out {sessionOut:F3} m3 to the ground" +
                       (sessionLost > 0f ? $", {sessionLost:F3} m3 nowhere" : "") +
-                      $"; holds {VolumeM3:F3} m3 at {Vector3.Angle(transform.up, Vector3.up):F0} deg");
+                      $"; holds {VolumeM3:F3} m3 at {TiltDeg():F0} deg");
             sessionOut = 0f;
             sessionLost = 0f;
         }
     }
 
-    /// <summary>縁から外の地面へ: 傾いていれば一番低い縁、平らなら縁の長さに比べた偶然の縁。</summary>
+    /// <summary>縁から外へ: 傾いていれば一番低い縁、平らなら縁の長さに比べた偶然の縁 - どちらも前の縁 (運転席の側) は
+    /// 選ばない (前へ流すと車体の上に落ちた: 10-23 のレビュー a846 P2-2)。</summary>
     private void OverTheRim(float volume)
     {
         Vector3 lo = bed.min, hi = bed.max;
@@ -134,20 +148,23 @@ public class CapBedLoad : MonoBehaviour
         var a = new[] { new Vector3(lo.x, y, lo.z), new Vector3(lo.x, y, hi.z), new Vector3(lo.x, y, lo.z), new Vector3(hi.x, y, lo.z) };
         var b = new[] { new Vector3(hi.x, y, lo.z), new Vector3(hi.x, y, hi.z), new Vector3(lo.x, y, hi.z), new Vector3(hi.x, y, hi.z) };
         var outward = new[] { Vector3.back, Vector3.forward, Vector3.left, Vector3.right };   // rear (the hinge's side), front, sides
+        const int Front = 1;
         int pick = 0;
         if (Vector3.Angle(transform.up, Vector3.up) > 2f)
         {
             float lowest = float.MaxValue;
             for (int i = 0; i < 4; i++)
             {
+                if (i == Front)
+                    continue;
                 float h = transform.TransformPoint((a[i] + b[i]) / 2f).y;
                 if (h < lowest) { lowest = h; pick = i; }
             }
         }
         else
         {
-            float sx = hi.x - lo.x, sz = hi.z - lo.z, r = Random.value * 2f * (sx + sz);
-            pick = r < sx ? 0 : r < 2f * sx ? 1 : r < 2f * sx + sz ? 2 : 3;
+            float sx = hi.x - lo.x, sz = hi.z - lo.z, r = Random.value * (sx + 2f * sz);
+            pick = r < sx ? 0 : r < sx + sz ? 2 : 3;                // the rear or a side, by their lengths
         }
         float unit = soil != null && soil.DigUnitM3 > 0f ? soil.DigUnitM3 : volume;
         while (volume > 1e-7f)
@@ -169,21 +186,28 @@ public class CapBedLoad : MonoBehaviour
         }
     }
 
+    /// <summary>落ちる先: p の真下で最初に当たる物 (この機体の車体と荷台は抜ける。p より上の物 - 荷台の上の腕 - は落ちる
+    /// 土に当たらない。地形は少し上でも: 穴の中の車)。地面なら true とその点、他の機体なら false (その上に落ちて地形には
+    /// 入らない: 地形だけを探すと他の機体を素通りしてその車体の下に積もった、a846 P2-2)。</summary>
     private bool GroundBelow(Vector3 p, out Vector3 ground)
     {
         int n = Physics.RaycastNonAlloc(p + Vector3.up * 3f, Vector3.down, hits, 60f, Physics.DefaultRaycastLayers,
                                         QueryTriggerInteraction.Ignore);
         float best = float.MaxValue;
+        Collider first = null;
         ground = p;
         for (int i = 0; i < n; i++)
         {
-            if (hits[i].collider is TerrainCollider && hits[i].distance < best)
-            {
-                best = hits[i].distance;
-                ground = hits[i].point;
-            }
+            Collider c = hits[i].collider;
+            if (c == null || hits[i].distance >= best || (machine != null && c.transform.IsChildOf(machine)))
+                continue;
+            if (!(c is TerrainCollider) && hits[i].point.y > p.y + 0.2f)
+                continue;                                          // above where the soil leaves the rim
+            best = hits[i].distance;
+            first = c;
+            ground = hits[i].point;
         }
-        return best < float.MaxValue;
+        return first is TerrainCollider;
     }
 
     private void MakeMound()

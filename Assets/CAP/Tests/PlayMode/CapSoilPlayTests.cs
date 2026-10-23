@@ -151,7 +151,17 @@ namespace CapKit.Tests
             Log($"G: {bed.CapacityM3 + 0.5f:F2} m3 into a level bed: holds {bed.VolumeM3:F3}, {bed.ToGroundM3 - g0:F3} m3 over the rim");
             Assert.AreEqual(bed.CapacityM3, bed.VolumeM3, 0.02f, "the bed past its capacity");
             Assert.AreEqual(0.5f, bed.ToGroundM3 - g0, 0.02f, "the excess");
-            Teleport(mst, new Vector3(40f, 0f, -40f), mst.rotation);
+
+            // ---- H: full, on a slope: the load kept (the bed's tilt is its dump's, not the machine's: 10-23 review)
+            float h0 = bed.ToGroundM3;
+            Teleport(mst, mst.position + Vector3.up * 0.3f, Quaternion.AngleAxis(20f, mst.right) * mst.rotation);
+            yield return Steps(3);                                   // judged before the machine settles back level
+            float world = Vector3.Angle(bed.transform.up, Vector3.up);
+            Log($"H: pitched {world:F1} deg: the bed's tilt {bed.TiltDeg():F1} deg, holds {bed.VolumeM3:F3}, out {bed.ToGroundM3 - h0:F4}");
+            Assert.Greater(world, 8f, "the machine not pitched");
+            Assert.Less(bed.TiltDeg(), 2f, "the dump's angle");
+            Assert.AreEqual(h0, bed.ToGroundM3, 1e-4f, "the load spilled on a slope");
+            Teleport(mst, new Vector3(40f, 0f, -40f), Quaternion.Euler(0f, mst.rotation.eulerAngles.y, 0f));
 
             // ---- C: a dig by the arm: what the bucket holds came out of the ground under it
             joints["body_link"].xDrive = WithTarget(joints["body_link"].xDrive, joints["body_link"].xDrive.target + 180f);
