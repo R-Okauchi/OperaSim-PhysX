@@ -6,7 +6,8 @@
         "UnitySensorsRuntime",
         "UnitySensorsROSRuntime",
         "Unity.Mathematics",
-        "Unity.Robotics.ROSTCPConnector"
+        "Unity.Robotics.ROSTCPConnector",
+        "Unity.Robotics.UrdfImporter"
     ],
     "includePlatforms": [
         "Editor"

@@ -407,6 +407,19 @@ public class DiffDriveController : MonoBehaviour
         return (v_out, w_out);
     }
 
+    /// <summary>A velocity command without ROS (CAP's tests and scenario operations): as a Twist on TwistTopicName.</summary>
+    public void SetCommand(double linear, double angular)
+    {
+        if (EnableVWBehaviorMode == true)
+        {
+            CommandLinearAngularVelocityVWBehaviorMode(linear, angular);
+        }
+        else
+        {
+            CommandLinearAngularVelocity(linear, angular);
+        }
+    }
+
     void ExecuteTwist(TwistMsg twist)
     {
         //Debug.Log("Linear Velocity:"+twist.linear.x);
