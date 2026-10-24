@@ -1,0 +1,351 @@
+using System;
+using System.Collections;
+using System.Collections.Generic;
+using System.Globalization;
+using System.IO;
+using System.Text;
+using RosMessageTypes.Std;
+using Unity.Robotics.ROSTCPConnector;
+using UnityEngine;
+
+/// <summary>
+/// A scenario's set-up and its live operations, from CapCycleRecorder's config ("scenario"), so one scene serves many
+/// scenarios (CAP's scenario runner writes the config; coordinates are ROS/map [m], as the machines' poses):
+/// - before the soil starts (AfterSceneLoad): machines spawned from Resources/Prefab (the D37PXi) or switched off,
+///   the ground shaped (flatten a rectangle to a height with a little roughness);
+/// - once the soil runs: piles laid as cones (exact volumes, CapSoilStamp), a dump truck's stand-in that lays the piles
+///   a Site asks for on /scenario/dump_request after a delay (and says so on /scenario/dump_done), the region's
+///   heights written every period (a float file per dump: the scorer's error-map frames) and on request
+///   (control.json "terrain_dump": "&lt;name&gt;", for the final score), people walking given paths (capsules, for
+///   the safety tests), and faults switched on at given times.
+/// </summary>
+public class CapScenarioOps : MonoBehaviour
+{
+    [Serializable]
+    public class Spawn
+    {
+        public string prefab;               // Resources/Prefab/<prefab>
+        public string name;                 // the root's name (its topics' namespace)
+        public float x;
+        public float y;
+        public float yaw_deg;               // ROS: from +x, counter-clockwise
+    }
+
+    [Serializable]
+    public class TerrainOp
+    {
+        public string op;                   // flatten
+        public float x0, y0, x1, y1;        // ROS rectangle
+        public float z;                     // the height [m] (world), or above the rectangle's mean height (z_relative)
+        public bool z_relative;
+        public float noise_m;               // roughness: +-noise_m, smooth over ~1 m
+        public int seed;
+    }
+
+    [Serializable]
+    public class Pile
+    {
+        public float x, y;
+        public float volume_m3;
+        public float repose_deg = 34f;
+    }
+
+    [Serializable]
+    public class Region
+    {
+        public float x0, y0, x1, y1;        // ROS rectangle
+        public float period_s;              // >0: its heights every period
+        public string prefix;               // <prefix>_<seconds>.f32 + .json
+    }
+
+    [Serializable]
+    public class Person
+    {
+        public string name = "person";
+        public float[] path;                // x0, y0, x1, y1, ... (ROS) walked once at speed
+        public float speed_mps = 1.2f;
+        public float start_s;
+    }
+
+    [Serializable]
+    public class Fault
+    {
+        public string kind;                 // blade_stall | lidar_off
+        public string machine;
+        public string target;               // lidar_off: the sensor's object name
+        public float at_s;
+        public float duration_s;
+    }
+
+    [Serializable]
+    public class Config
+    {
+        public Spawn[] spawn;
+        public string[] disable;
+        public TerrainOp[] terrain;
+        public Pile[] piles;
+        public bool dump_service;
+        public float dump_delay_s = 120f;
+        public float dump_repose_deg = 34f;
+        public Region region;
+        public Person[] people;
+        public Fault[] faults;
+    }
+
+    public Config config;
+    public string outDir;                   // the recorder's: the ground before the piles to <outDir>/terrain/ground
+    private float t0;
+    private ROSConnection ros;
+    private readonly Queue<(float at, float x, float y, float v, string id)> dumps = new Queue<(float, float, float, float, string)>();
+
+    // ---- before the soil starts (CapCycleRecorder.Boot, AfterSceneLoad)
+
+    public static void Prepare(Config cfg)
+    {
+        if (cfg == null) return;
+        if (cfg.disable != null)
+        {
+            foreach (var n in cfg.disable)
+            {
+                var go = GameObject.Find(n);
+                if (go != null)
+                {
+                    go.SetActive(false);
+                    Debug.Log($"[{nameof(CapScenarioOps)}] {n} switched off");
+                }
+            }
+        }
+        if (cfg.spawn != null)
+        {
+            foreach (var s in cfg.spawn)
+            {
+                var prefab = Resources.Load<GameObject>("Prefab/" + s.prefab);
+                if (prefab == null)
+                {
+                    Debug.LogWarning($"[{nameof(CapScenarioOps)}] no Resources/Prefab/{s.prefab}");
+                    continue;
+                }
+                var at = new Vector3(-s.y, 0f, s.x);
+                float g = Ground(at);
+                at.y = (float.IsNaN(g) ? 0f : g) + 0.6f;
+                // ROS yaw (counter-clockwise from +x) is Unity's clockwise turn about up from +z (ROS +x)
+                var go = Instantiate(prefab, at, Quaternion.Euler(0f, -s.yaw_deg, 0f));
+                go.name = string.IsNullOrEmpty(s.name) ? s.prefab : s.name;
+                Debug.Log($"[{nameof(CapScenarioOps)}] spawned {go.name} at ({s.x:F1}, {s.y:F1}) yaw {s.yaw_deg:F0} deg");
+            }
+        }
+        if (cfg.terrain != null)
+        {
+            foreach (var op in cfg.terrain) Shape(op);
+        }
+    }
+
+    private static float Ground(Vector3 at)
+    {
+        foreach (var t in Terrain.activeTerrains)
+        {
+            var b = new Bounds(t.terrainData.bounds.center + t.transform.position, t.terrainData.bounds.size);
+            if (at.x >= b.min.x && at.x <= b.max.x && at.z >= b.min.z && at.z <= b.max.z)
+                return t.SampleHeight(at) + t.transform.position.y;
+        }
+        return float.NaN;
+    }
+
+    /// <summary>Flatten a ROS rectangle of the terrain to a height, with smooth roughness (the CPU heights: the soil's
+    /// working heightmap is built from them when it starts).</summary>
+    private static void Shape(TerrainOp op)
+    {
+        if (op.op != "flatten") return;
+        var terrain = Terrain.activeTerrain;
+        if (terrain == null) return;
+        var d = terrain.terrainData;
+        int res = d.heightmapResolution;
+        Vector3 p = terrain.transform.position, size = d.size;
+        // ROS x <- Unity z (rows), ROS y <- -Unity x (columns)
+        float ux0 = -op.y1, ux1 = -op.y0, uz0 = op.x0, uz1 = op.x1;
+        int c0 = Mathf.Clamp(Mathf.FloorToInt((ux0 - p.x) / size.x * (res - 1)), 0, res - 1);
+        int c1 = Mathf.Clamp(Mathf.CeilToInt((ux1 - p.x) / size.x * (res - 1)), 0, res - 1);
+        int r0 = Mathf.Clamp(Mathf.FloorToInt((uz0 - p.z) / size.z * (res - 1)), 0, res - 1);
+        int r1 = Mathf.Clamp(Mathf.CeilToInt((uz1 - p.z) / size.z * (res - 1)), 0, res - 1);
+        int w = c1 - c0 + 1, h = r1 - r0 + 1;
+        float z = op.z;
+        if (op.z_relative)
+        {
+            var now = d.GetHeights(c0, r0, w, h);
+            double sum = 0.0;
+            foreach (var v in now) sum += v;
+            z += (float)(sum / now.Length) * size.y + p.y;
+        }
+        var heights = new float[h, w];
+        var rnd = new System.Random(op.seed);
+        float ox = (float)rnd.NextDouble() * 100f, oy = (float)rnd.NextDouble() * 100f;
+        float cell = size.x / (res - 1);
+        for (int r = 0; r < h; r++)
+        for (int c = 0; c < w; c++)
+        {
+            float wx = (c0 + c) * cell, wz = (r0 + r) * cell;
+            float n = op.noise_m > 0f ? (Mathf.PerlinNoise(ox + wx * 0.8f, oy + wz * 0.8f) * 2f - 1f) * op.noise_m : 0f;
+            heights[r, c] = Mathf.Clamp01((z + n - p.y) / size.y);
+        }
+        d.SetHeights(c0, r0, heights);
+        Debug.Log($"[{nameof(CapScenarioOps)}] flattened ({op.x0}, {op.y0})..({op.x1}, {op.y1}) to {z:F3} m +-{op.noise_m} m");
+    }
+
+    // ---- once the soil runs
+
+    IEnumerator Start()
+    {
+        t0 = Time.time;
+        while (SoilParticleSettings.instance == null || SoilParticleSettings.instance.WorkingHeightmap == null)
+            yield return null;
+        var soil = SoilParticleSettings.instance;
+        if (config.region != null && !string.IsNullOrEmpty(outDir))
+        {
+            string dir = Path.Combine(outDir, "terrain");
+            Directory.CreateDirectory(dir);
+            WriteRegion(config.region, Path.Combine(dir, "ground"));       // before any pile: the score's ground
+            Debug.Log($"[{nameof(CapScenarioOps)}] the ground before the piles -> {dir}/ground");
+        }
+        if (config.piles != null)
+        {
+            double laid = 0.0;
+            foreach (var pile in config.piles)
+                laid += CapSoilStamp.Cone(soil, new Vector3(-pile.y, 0f, pile.x), pile.volume_m3, pile.repose_deg);
+            Debug.Log($"[{nameof(CapScenarioOps)}] {config.piles.Length} piles, {laid:F3} m3");
+        }
+        ros = ROSConnection.GetOrCreateInstance();
+        if (config.dump_service)
+        {
+            ros.Subscribe<StringMsg>("/scenario/dump_request", OnDumpRequest);
+            ros.RegisterPublisher<StringMsg>("/scenario/dump_done");
+        }
+        if (config.people != null)
+        {
+            foreach (var person in config.people) StartCoroutine(Walk(person));
+        }
+        if (config.faults != null)
+        {
+            foreach (var f in config.faults) StartCoroutine(FaultAt(f));
+        }
+        if (config.region != null && config.region.period_s > 0f && !string.IsNullOrEmpty(config.region.prefix))
+            StartCoroutine(RegionDumps());
+    }
+
+    [Serializable]
+    private class DumpRequest
+    {
+        public string id;
+        public float x, y;
+        public float volume_m3;
+    }
+
+    private void OnDumpRequest(StringMsg msg)
+    {
+        DumpRequest r;
+        try { r = JsonUtility.FromJson<DumpRequest>(msg.data); }
+        catch (Exception e)
+        {
+            Debug.LogWarning($"[{nameof(CapScenarioOps)}] dump request unreadable: {e.Message}");
+            return;
+        }
+        float at = Time.time + config.dump_delay_s * (dumps.Count + 1);       // one truck after another
+        dumps.Enqueue((at, r.x, r.y, r.volume_m3, r.id));
+        Debug.Log($"[{nameof(CapScenarioOps)}] dump {r.id} of {r.volume_m3} m3 at ({r.x}, {r.y}) in {at - Time.time:F0} s");
+    }
+
+    void Update()
+    {
+        while (dumps.Count > 0 && dumps.Peek().at <= Time.time)
+        {
+            var d = dumps.Dequeue();
+            double laid = CapSoilStamp.Cone(SoilParticleSettings.instance, new Vector3(-d.y, 0f, d.x), d.v, config.dump_repose_deg);
+            ros?.Publish("/scenario/dump_done", new StringMsg(string.Format(CultureInfo.InvariantCulture,
+                "{{\"id\": \"{0}\", \"x\": {1}, \"y\": {2}, \"volume_m3\": {3:F4}}}", d.id, d.x, d.y, laid)));
+            Debug.Log($"[{nameof(CapScenarioOps)}] dumped {d.id}: {laid:F3} m3 at ({d.x}, {d.y})");
+        }
+    }
+
+    private IEnumerator Walk(Person p)
+    {
+        if (p.path == null || p.path.Length < 4) yield break;
+        while (Time.time - t0 < p.start_s) yield return null;
+        var body = GameObject.CreatePrimitive(PrimitiveType.Capsule);
+        body.name = p.name;
+        body.transform.localScale = new Vector3(0.5f, 0.85f, 0.5f);          // 1.7 m tall, 0.5 m across
+        Destroy(body.GetComponent<Collider>());
+        var kinematic = body.AddComponent<CapsuleCollider>();
+        kinematic.isTrigger = true;                                            // seen by the LiDAR's rays, pushes nothing
+        for (int i = 0; i + 3 < p.path.Length; i += 2)
+        {
+            var a = new Vector3(-p.path[i + 1], 0f, p.path[i]);
+            var b = new Vector3(-p.path[i + 3], 0f, p.path[i + 2]);
+            float len = Vector3.Distance(a, b), walked = 0f;
+            while (walked < len)
+            {
+                var at = Vector3.Lerp(a, b, walked / len);
+                float g = Ground(at);
+                at.y = (float.IsNaN(g) ? 0f : g) + 0.85f;
+                body.transform.position = at;
+                walked += p.speed_mps * Time.deltaTime;
+                yield return null;
+            }
+        }
+        Debug.Log($"[{nameof(CapScenarioOps)}] {p.name} walked its path");
+        Destroy(body);
+    }
+
+    private IEnumerator FaultAt(Fault f)
+    {
+        while (Time.time - t0 < f.at_s) yield return null;
+        var machine = GameObject.Find(f.machine);
+        if (machine == null)
+        {
+            Debug.LogWarning($"[{nameof(CapScenarioOps)}] fault {f.kind}: no {f.machine}");
+            yield break;
+        }
+        Debug.Log($"[{nameof(CapScenarioOps)}] fault {f.kind} on {f.machine} for {f.duration_s} s");
+        if (f.kind == "blade_stall")
+        {
+            var drive = machine.GetComponent<CapBladeDrive>();
+            if (drive != null) drive.enabled = false;                          // the blade holds where it is
+            yield return new WaitForSeconds(f.duration_s);
+            if (drive != null) drive.enabled = true;
+        }
+        else if (f.kind == "lidar_off")
+        {
+            Transform sensor = null;
+            foreach (var t in machine.GetComponentsInChildren<Transform>(true))
+                if (t.name == f.target) sensor = t;
+            if (sensor == null) yield break;
+            sensor.gameObject.SetActive(false);
+            yield return new WaitForSeconds(f.duration_s);
+            sensor.gameObject.SetActive(true);
+        }
+        Debug.Log($"[{nameof(CapScenarioOps)}] fault {f.kind} on {f.machine} over");
+    }
+
+    private IEnumerator RegionDumps()
+    {
+        var wait = new WaitForSeconds(config.region.period_s);
+        while (true)
+        {
+            yield return wait;
+            WriteRegion(config.region, $"{config.region.prefix}_{Time.time - t0:F0}");
+        }
+    }
+
+    /// <summary>The region's heights [m, world] from the soil's working heightmap as float32 rows (ROS x rising, then ROS
+    /// y rising) with a .json of its grid: what the scorer and the error-map frames read.</summary>
+    public static void WriteRegion(Region r, string path)
+    {
+        var grid = CapTerrainDEMPublisher.Grid(r.x0, r.y0, r.x1, r.y1);
+        if (grid == null) return;
+        using (var w = new BinaryWriter(File.Open(path + ".f32", FileMode.Create)))
+        {
+            foreach (var h in grid.heights) w.Write(h);
+        }
+        File.WriteAllText(path + ".json", string.Format(CultureInfo.InvariantCulture,
+            "{{\"x0\": {0}, \"y0\": {1}, \"cell_m\": {2}, \"nx\": {3}, \"ny\": {4}, \"file\": \"{5}.f32\", \"t\": {6}}}",
+            grid.x0, grid.y0, grid.cell, grid.nx, grid.ny, Path.GetFileName(path), Time.time));
+    }
+}

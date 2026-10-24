@@ -44,7 +44,7 @@ namespace CapKit.Tests
         {
             LogAssert.ignoreFailingMessages = true;              // ROS-TCP has no endpoint here
             SceneManager.sceneLoaded += NoParticles;              // after Awake, before Start
-            yield return EditorSceneManager.LoadSceneAsyncInPlayMode(Scene, new LoadSceneParameters(LoadSceneMode.Single));
+            yield return CapTestScene.LoadFresh(Scene);
             SceneManager.sceneLoaded -= NoParticles;
             yield return new WaitForSeconds(1.0f);
 
@@ -290,7 +290,7 @@ namespace CapKit.Tests
         {
             LogAssert.ignoreFailingMessages = true;
             SceneManager.sceneLoaded += TerrainCopies;
-            yield return EditorSceneManager.LoadSceneAsyncInPlayMode(Scene, new LoadSceneParameters(LoadSceneMode.Single));
+            yield return CapTestScene.LoadFresh(Scene);
             SceneManager.sceneLoaded -= TerrainCopies;
             yield return new WaitForSeconds(1.0f);
             var soil = SoilParticleSettings.instance;

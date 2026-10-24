@@ -323,6 +323,86 @@ public class SoilParticleSettings : MonoBehaviour
         }
     }
 
+    // ---- the working heightmap, for CAP's blade (CapDozerBlade): it writes this step's cut and fill here before the
+    // slides (its execution order is before this script's), then has the changed rect copied to the terrain at once.
+
+    /// <summary>The working heightmap the soil's changes go into this step (texture heights: the height above the
+    /// terrain's base, normalised by its size, times 32766/65535). Null before Start or with the soil off.</summary>
+    public RenderTexture WorkingHeightmap => enable ? heightmapRT0 : null;
+
+    /// <summary>The working heightmap's size in vertices.</summary>
+    public Vector2Int HeightmapSize => new Vector2Int(xRes, yRes);
+
+    /// <summary>A world point as working-heightmap coordinates: (vertex x, vertex y, texture height).</summary>
+    public Vector3 ToTexel(Vector3 world)
+    {
+        var size = GetComponent<Terrain>().terrainData.size;
+        Vector3 rel = world - transform.position;
+        return new Vector3(rel.x / size.x * (xRes - 1), rel.z / size.z * (yRes - 1), rel.y / size.y * (32766f / 65535f));
+    }
+
+    /// <summary>A vertex of the working heightmap and a texture height as a world point.</summary>
+    public Vector3 FromTexel(float x, float y, float textureHeight)
+    {
+        var size = GetComponent<Terrain>().terrainData.size;
+        return transform.position + new Vector3(x / (xRes - 1) * size.x, textureHeight / (32766f / 65535f) * size.y,
+                                                y / (yRes - 1) * size.z);
+    }
+
+    /// <summary>One vertex's share of the ground [m2] and one texture-height unit [m]: a change of dh texture units at a
+    /// vertex is dh * TexelArea * TextureUnitM cubic metres.</summary>
+    public float TexelArea
+    {
+        get
+        {
+            var size = GetComponent<Terrain>().terrainData.size;
+            return size.x / (xRes - 1) * (size.z / (yRes - 1));
+        }
+    }
+
+    public float TextureUnitM => GetComponent<Terrain>().terrainData.size.y / (32766f / 65535f);
+
+    /// <summary>The soil's volume over a square of the working heightmap around a world point [m3, above the terrain's
+    /// base] - read from the float heights, not the terrain's 16-bit copy (tests: what moved, to the quantum).</summary>
+    public double WorkingVolume(Vector3 center, float halfM)
+    {
+        if (heightmapRT0 == null) return double.NaN;
+        var c = ToTexel(center);
+        float cell = Mathf.Sqrt(TexelArea);
+        int r = Mathf.CeilToInt(halfM / cell);
+        int x0 = Mathf.Clamp(Mathf.RoundToInt(c.x) - r, 0, xRes - 1), y0 = Mathf.Clamp(Mathf.RoundToInt(c.y) - r, 0, yRes - 1);
+        int x1 = Mathf.Clamp(Mathf.RoundToInt(c.x) + r, 0, xRes - 1), y1 = Mathf.Clamp(Mathf.RoundToInt(c.y) + r, 0, yRes - 1);
+        int w = x1 - x0 + 1, h = y1 - y0 + 1;
+        var prev = RenderTexture.active;
+        RenderTexture.active = heightmapRT0;
+        var tex = new Texture2D(w, h, TextureFormat.RGBAFloat, false, true);
+        tex.ReadPixels(new Rect(x0, y0, w, h), 0, 0, false);
+        tex.Apply(false, false);
+        RenderTexture.active = prev;
+        double sum = 0.0;
+        foreach (var px in tex.GetPixels()) sum += px.r;
+        Destroy(tex);
+        return sum * TextureUnitM * TexelArea;
+    }
+
+    /// <summary>Copy a rect of the working heightmap to the terrain's heights now, and mark it changed (the colliders,
+    /// the LiDAR and the DEM see it; the next syncs carry its slides).</summary>
+    public void Commit(RectInt rect)
+    {
+        if (!enable || heightmapRT0 == null) return;
+        rect = ClampRectToBounds(rect, xRes, yRes);
+        if (rect.width <= 0 || rect.height <= 0) return;
+        var terrainData = GetComponent<Terrain>().terrainData;
+        var prev = RenderTexture.active;
+        RenderTexture.active = heightmapRT0;
+        MarkDirty(rect, terrainData.size);
+        if (!tiler)
+            terrainData.CopyActiveRenderTextureToHeightmap(rect, rect.min, TerrainHeightmapSyncControl.None);
+        else
+            CopyActiveRenderTextureToHeightmapTiled(rect, FromTexel(rect.center.x, rect.center.y, 0f));
+        RenderTexture.active = prev;
+    }
+
     /// <summary>診断: point の高さの点の作業用の高さ (GPU の heightmap、高さの texture の尺度) と地形の CPU の高さを同じ尺度で。
     /// 2 つが違えば地形の変化は GPU とずれている (Linux 版の自己試験が使う)。</summary>
     public (float gpu, float cpu) HeightmapTexel(Vector3 point)

@@ -82,6 +82,15 @@ public class CapCycleRecorder : MonoBehaviour
         public float pace_log_s;          // >0: その秒ごとに模擬の速さを記録 (CapPaceLog)
         public string screen_cameras;     // off: 画面に描くだけのカメラ (targetTexture の無いもの) を切る (頭無しの実行)
         public int frame_rate;            // >0: Application.targetFrameRate (頭無しの描かない実行は 600 fps 近くまで回る)
+        public CapScenarioOps.Config scenario;   // a scenario's machines, ground, piles, trucks, people, faults (CapScenarioOps)
+        public DemGrid dem_grid;          // the survey on /terrain/dem_grid (CapTerrainDEMPublisher): its region and period
+    }
+
+    [Serializable]
+    private class DemGrid
+    {
+        public float x0, y0, x1, y1;      // ROS rectangle
+        public float period_s = 3f;
     }
 
     [Serializable]
@@ -91,6 +100,7 @@ public class CapCycleRecorder : MonoBehaviour
         public string session;
         public string snapshot;
         public int config_rev;
+        public string terrain_dump;       // a name: the scenario region's heights now, to <out_dir>/terrain/<name> (the score)
     }
 
     private class View
@@ -119,6 +129,7 @@ public class CapCycleRecorder : MonoBehaviour
     private int _dropped;
     private int _written;
     private string _lastSnapshot = "";
+    private string _lastTerrainDump = "";
     private int _configRev;
     private bool _flip;
     private BlockingCollection<Job> _queue;
@@ -157,6 +168,9 @@ public class CapCycleRecorder : MonoBehaviour
         // 土の粒子が先頭: どの道を走るかを決める
         Stage("soil particles", () => SoilParticles(cfg.soil_particles));
         Stage("placements", () => PlaceMachines(cfg.placements));
+        // a scenario's machines and ground before the soil starts (its working heightmap is built from these heights);
+        // the ground's dump below is then the ground before any pile
+        Stage("scenario", () => CapScenarioOps.Prepare(cfg.scenario));
         Stage("ROS endpoint", () => PointRos(cfg.ros_ip, cfg.ros_port));
         Stage("terrain dump", () => DumpTerrain(cfg.terrain_dump));
         if (cfg.visualizers == "off")
@@ -189,6 +203,30 @@ public class CapCycleRecorder : MonoBehaviour
                 var check = new GameObject(nameof(CapSoilSelfTest));
                 DontDestroyOnLoad(check);
                 check.AddComponent<CapSoilSelfTest>().quitAfter = cfg.soil_selftest_quit;
+            });
+        }
+        if (cfg.scenario != null)
+        {
+            Stage("scenario ops", () =>
+            {
+                var ops = new GameObject(nameof(CapScenarioOps));
+                DontDestroyOnLoad(ops);
+                var scenario = ops.AddComponent<CapScenarioOps>();
+                scenario.config = cfg.scenario;
+                scenario.outDir = cfg.out_dir;
+            });
+        }
+        if (cfg.dem_grid != null && cfg.dem_grid.x1 > cfg.dem_grid.x0 && cfg.dem_grid.y1 > cfg.dem_grid.y0)
+        {
+            Stage("survey", () =>
+            {
+                var dem = new GameObject(nameof(CapTerrainDEMPublisher)).AddComponent<CapTerrainDEMPublisher>();
+                DontDestroyOnLoad(dem.gameObject);
+                dem.x0 = cfg.dem_grid.x0;
+                dem.y0 = cfg.dem_grid.y0;
+                dem.x1 = cfg.dem_grid.x1;
+                dem.y1 = cfg.dem_grid.y1;
+                dem.periodS = cfg.dem_grid.period_s;
             });
         }
         var go = new GameObject(nameof(CapCycleRecorder));
@@ -501,6 +539,18 @@ public class CapCycleRecorder : MonoBehaviour
         {
             _configRev = c.config_rev;
             LoadConfig();
+        }
+        if (!string.IsNullOrEmpty(c.terrain_dump) && c.terrain_dump != _lastTerrainDump)
+        {
+            _lastTerrainDump = c.terrain_dump;
+            var region = _config.scenario?.region;
+            if (region != null)
+            {
+                string dir = Path.Combine(_config.out_dir, "terrain");
+                Directory.CreateDirectory(dir);
+                CapScenarioOps.WriteRegion(region, Path.Combine(dir, c.terrain_dump));
+                Debug.Log($"[{nameof(CapCycleRecorder)}] terrain {c.terrain_dump} -> {dir}");
+            }
         }
         if (!string.IsNullOrEmpty(c.snapshot) && c.snapshot != _lastSnapshot)
         {

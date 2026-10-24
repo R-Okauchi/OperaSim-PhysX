@@ -1,0 +1,104 @@
+// CAP's dozer blade on the soil's working heightmap (CapDozerBlade drives it; cap-side reference model:
+// twin/blade_soil.py). Heights are the working heightmap's texture heights; volumes are counted in integer quanta
+// (qPerTex quanta per texture-height unit per vertex). What is counted is what was written: each vertex's change is
+// read back from the new and the old float (their difference is exact for heights this close), so the blade's ledger and
+// the terrain agree to the quantum.
+//
+//   BladeMeasure: under the edge, how much is above it (cut) and how much room is below it (demand) - nothing written
+//   BladeApply:   cut everything above the edge down to it, fill every vertex below it by fillFrac of its room
+//   StampAdd:     add given quanta at given vertices (spills, the rest wedge, piles)
+//
+// The edge is the segment edgeA -> edgeB (x, y: vertex coordinates, z: texture height at that end); a vertex is under it
+// when its projection falls on the segment and it lies within -bandBack..+bandFront vertices of it along the travel.
+// Cutting to the edge and filling no higher than it are idempotent: a blade that stands still changes nothing more.
+
+#pragma kernel BladeMeasure
+#pragma kernel BladeApply
+#pragma kernel StampAdd
+
+RWTexture2D<float> heightmap;
+// [0] cut quanta, [1] demand quanta (measure) / filled quanta (apply), [2] vertices under the edge, [3] stamped quanta
+RWStructuredBuffer<uint> acc;
+int2 rectMin;
+int2 rectSize;
+float4 edgeA;                        // (x, y, h, 0)
+float4 edgeB;
+float4 travel;                       // (nx, ny, bandBack, bandFront): the travel's unit direction in vertex space
+float qPerTex;
+float fillFrac;
+
+StructuredBuffer<int2> stampTexels;
+StructuredBuffer<uint> stampQuanta;
+int stampCount;
+
+bool Under(int2 p, out float he)
+{
+    float2 a = edgeA.xy, b = edgeB.xy;
+    float2 ab = b - a;
+    float l2 = dot(ab, ab);
+    he = 0.0;
+    if (l2 <= 0.0) return false;
+    float2 q = float2(p) - a;
+    float t = dot(q, ab) / l2;
+    if (t < 0.0 || t > 1.0) return false;
+    float2 c = a + t * ab;
+    float s = dot(float2(p) - c, travel.xy);
+    if (s < -travel.z || s > travel.w) return false;
+    he = lerp(edgeA.z, edgeB.z, t);
+    return true;
+}
+
+uint Quanta(float dh) { return (uint)round(dh * qPerTex); }
+
+void Blade(uint3 id, bool apply)
+{
+    if ((int)id.x >= rectSize.x || (int)id.y >= rectSize.y) return;
+    int2 p = rectMin + int2(id.xy);
+    float he;
+    if (!Under(p, he)) return;
+    InterlockedAdd(acc[2], 1u);
+    float h = heightmap[p];
+    if (h > he)
+    {
+        if (apply)
+        {
+            heightmap[p] = he;
+            InterlockedAdd(acc[0], Quanta(h - he));
+        }
+        else
+        {
+            InterlockedAdd(acc[0], Quanta(h - he));
+        }
+    }
+    else if (h < he)
+    {
+        if (apply)
+        {
+            float hn = h + fillFrac * (he - h);
+            hn = min(hn, he);
+            heightmap[p] = hn;
+            InterlockedAdd(acc[1], Quanta(hn - h));
+        }
+        else
+        {
+            InterlockedAdd(acc[1], Quanta(he - h));
+        }
+    }
+}
+
+[numthreads(8, 8, 1)]
+void BladeMeasure(uint3 id : SV_DispatchThreadID) { Blade(id, false); }
+
+[numthreads(8, 8, 1)]
+void BladeApply(uint3 id : SV_DispatchThreadID) { Blade(id, true); }
+
+[numthreads(64, 1, 1)]
+void StampAdd(uint3 id : SV_DispatchThreadID)
+{
+    if ((int)id.x >= stampCount) return;
+    int2 p = stampTexels[id.x];
+    float h = heightmap[p];
+    float hn = h + stampQuanta[id.x] / qPerTex;
+    heightmap[p] = hn;
+    InterlockedAdd(acc[3], Quanta(hn - h));
+}

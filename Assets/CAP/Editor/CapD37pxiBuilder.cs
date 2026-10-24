@@ -192,8 +192,18 @@ namespace CapKit.Editor
             pose.topicName = $"{Ns}/base_link/pose";
             pose.publishMessageInterval = 0.05f;
 
-            Marker(blade.transform, "cap_edge_left", EdgeLeftUrdf);
-            Marker(blade.transform, "cap_edge_right", EdgeRightUrdf);
+            var edgeLeft = Marker(blade.transform, "cap_edge_left", EdgeLeftUrdf);
+            var edgeRight = Marker(blade.transform, "cap_edge_right", EdgeRightUrdf);
+
+            // the blade in the soil (CapBlade.compute): cuts, carries, spills and lays down, before the soil's slides
+            var soil = robot.AddComponent<CapDozerBlade>();
+            soil.edgeLeft = edgeLeft;
+            soil.edgeRight = edgeRight;
+            soil.hub = baseLink;
+            soil.bladeDrive = bladeDrive;
+            soil.capacityM3 = 2.0f;                 // W H^2 / (2 tan 30) for 3.21 m x 0.88 m; SAE J1265 gives 1.9-2.1
+            soil.widthM = 3.21f;
+            soil.soilTopic = $"{Ns}/blade/soil";
         }
 
         static GameObject Wheel(Transform parent, string name, Vector3 urdf, bool middle)
@@ -218,12 +228,13 @@ namespace CapKit.Editor
             return go;
         }
 
-        static void Marker(Transform parent, string name, Vector3 urdf)
+        static Transform Marker(Transform parent, string name, Vector3 urdf)
         {
             var go = new GameObject(name);
             go.layer = 3;
             go.transform.SetParent(parent, false);
             go.transform.localPosition = Unity(urdf);
+            return go.transform;
         }
 
         static void RemoveJoint(GameObject go)
