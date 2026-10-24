@@ -16,6 +16,7 @@ public static class CapSoilGeometry
         public int cast;          // 投げた光線の数
         public float spanDeg;     // ピンの面の中で抜けた向きの広がり [deg]
         public bool fromRays;     // false: 抜ける光線が無く、ピンの軸と爪先の面に垂直な向きで代えた
+        public bool noShell;      // 殻の当たり判定が無く、リンクの上で代えた
     }
 
     /// <summary>荷台の内側 (荷台のリンクの座標、Unity の軸): 床 min.y、縁 max.y、ヒンジ側は min.z。容量 [m3] は平らに
@@ -136,6 +137,7 @@ public static class CapSoilGeometry
         if (points.Count == 0)
         {
             mouth.direction = Vector3.up;
+            mouth.noShell = true;
             return mouth;
         }
         Vector3 sum = Vector3.zero;

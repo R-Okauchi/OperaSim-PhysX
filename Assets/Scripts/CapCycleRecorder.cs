@@ -135,44 +135,61 @@ public class CapCycleRecorder : MonoBehaviour
         {
             return;
         }
+        if (Array.IndexOf(Environment.GetCommandLineArgs(), "-runTests") >= 0)
+        {
+            // The PlayMode tests' scenes are theirs (CAP review a846 #9: a shell with the run's config set placed the
+            // machines and dug the self-test's pit into the tests' ground)
+            Debug.Log($"[{nameof(CapCycleRecorder)}] -runTests: {path} not applied");
+            return;
+        }
+        RecorderConfig cfg;
         try
         {
-            // シーンの読み込み直後 = 物理の最初の 1 歩の前: 置き直しも地形もここで (センサが最初の値を出す前)
-            var cfg = JsonUtility.FromJson<RecorderConfig>(File.ReadAllText(path));
-            PlaceMachines(cfg.placements);
-            PointRos(cfg.ros_ip, cfg.ros_port);
-            SoilParticles(cfg.soil_particles);
-            DumpTerrain(cfg.terrain_dump);
-            if (cfg.visualizers == "off")
-            {
-                SilenceVisualizers();
-            }
-            if (cfg.screen_cameras == "off")
-            {
-                ScreenCamerasOff();
-            }
-            if (cfg.frame_rate > 0)
-            {
-                QualitySettings.vSyncCount = 0;
-                Application.targetFrameRate = cfg.frame_rate;
-                Debug.Log($"[{nameof(CapCycleRecorder)}] frame rate {cfg.frame_rate}");
-            }
-            if (cfg.pace_log_s > 0f)
+            cfg = JsonUtility.FromJson<RecorderConfig>(File.ReadAllText(path));
+        }
+        catch (Exception e)
+        {
+            Debug.LogWarning($"[{nameof(CapCycleRecorder)}] {path} unreadable: {e.Message}");
+            return;
+        }
+        // シーンの読み込み直後 = 物理の最初の 1 歩の前: 置き直しも地形もここで (センサが最初の値を出す前)。段ごとに試し、
+        // 1 つが投げても他は効く (a846 #9: 置き直しが投げると粒子のまま走り、地形の書き出しが投げると残りが黙って飛んだ)。
+        // 土の粒子が先頭: どの道を走るかを決める
+        Stage("soil particles", () => SoilParticles(cfg.soil_particles));
+        Stage("placements", () => PlaceMachines(cfg.placements));
+        Stage("ROS endpoint", () => PointRos(cfg.ros_ip, cfg.ros_port));
+        Stage("terrain dump", () => DumpTerrain(cfg.terrain_dump));
+        if (cfg.visualizers == "off")
+        {
+            Stage("visualizers", SilenceVisualizers);
+        }
+        if (cfg.screen_cameras == "off")
+        {
+            Stage("screen cameras", ScreenCamerasOff);
+        }
+        if (cfg.frame_rate > 0)
+        {
+            QualitySettings.vSyncCount = 0;
+            Application.targetFrameRate = cfg.frame_rate;
+            Debug.Log($"[{nameof(CapCycleRecorder)}] frame rate {cfg.frame_rate}");
+        }
+        if (cfg.pace_log_s > 0f)
+        {
+            Stage("pace log", () =>
             {
                 var pace = new GameObject(nameof(CapPaceLog));
                 DontDestroyOnLoad(pace);
                 pace.AddComponent<CapPaceLog>().period = cfg.pace_log_s;
-            }
-            if (cfg.soil_selftest)
+            });
+        }
+        if (cfg.soil_selftest)
+        {
+            Stage("soil self-test", () =>
             {
                 var check = new GameObject(nameof(CapSoilSelfTest));
                 DontDestroyOnLoad(check);
                 check.AddComponent<CapSoilSelfTest>().quitAfter = cfg.soil_selftest_quit;
-            }
-        }
-        catch (Exception e)
-        {
-            Debug.LogWarning($"[{nameof(CapCycleRecorder)}] placements/terrain: {e.Message}");
+            });
         }
         var go = new GameObject(nameof(CapCycleRecorder));
         DontDestroyOnLoad(go);
@@ -236,12 +253,32 @@ public class CapCycleRecorder : MonoBehaviour
 
     // 画面に描くだけのカメラ (targetTexture の無いもの: Main Camera など): 頭無しの実行 (Linux 版をソフトの OpenGL で) では
     // 誰も見ない画面に毎フレーム描いて模擬を遅らせる。センサのカメラと録画のカメラ (RenderTexture に描く) はそのまま。
+    private static void Stage(string what, Action act)
+    {
+        try
+        {
+            act();
+        }
+        catch (Exception e)
+        {
+            Debug.LogWarning($"[{nameof(CapCycleRecorder)}] {what}: {e.Message}");
+        }
+    }
+
+    // The scene's Main Camera, kept before the screen's cameras are switched off: the recording's cameras copy its sky
+    // and rendering (Camera.main is none once it is off)
+    private static Camera s_mainCamera;
+
     private static void ScreenCamerasOff()
     {
         int n = 0;
+        s_mainCamera = Camera.main;
         foreach (var cam in Resources.FindObjectsOfTypeAll<Camera>())
         {
-            if (cam == null || cam.gameObject.scene.rootCount == 0 || !cam.enabled || cam.targetTexture != null) continue;
+            // A camera of an object not active (yet) is left as it is: a sensor's gets its target texture in its
+            // Awake, which has not run (a846 #10)
+            if (cam == null || cam.gameObject.scene.rootCount == 0 || !cam.gameObject.activeInHierarchy || !cam.enabled
+                || cam.targetTexture != null) continue;
             cam.enabled = false;
             n++;
         }
@@ -382,7 +419,7 @@ public class CapCycleRecorder : MonoBehaviour
             if (v.cam != null) { Destroy(v.cam.gameObject); }
         }
         _views.Clear();
-        Camera main = Camera.main;
+        Camera main = Camera.main != null ? Camera.main : s_mainCamera;
         foreach (var vc in _config.views ?? new ViewConfig[0])
         {
             var go = new GameObject("CapRec_" + vc.name);

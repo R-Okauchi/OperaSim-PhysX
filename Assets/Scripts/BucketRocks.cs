@@ -70,7 +70,7 @@ public class BucketRocks : MonoBehaviour
         capacity = capacityM3 > 0f ? capacityM3 : CapSoilGeometry.BucketCapacityM3(machine.name);
         mouth = CapSoilGeometry.BucketMouth(link, CapSoilGeometry.BucketShell(link));
         Debug.Log($"[CapSoil] {machine.name} bucket {capacity:F2} m3, mouth {mouth.direction.ToString("F3")} in {link.name} " +
-                  (mouth.fromRays ? $"({mouth.escaped}/{mouth.cast} rays out, {mouth.spanDeg:F0} deg)" : "(no ray out: the pin-tip plane)") +
+                  (mouth.noShell ? "(no shell: the link's up)" : mouth.fromRays ? $"({mouth.escaped}/{mouth.cast} rays out, {mouth.spanDeg:F0} deg)" : "(no ray out: the pin-tip plane)") +
                   $", now {Vector3.Angle(link.TransformDirection(mouth.direction), Vector3.up):F0} deg from up");
     }
 

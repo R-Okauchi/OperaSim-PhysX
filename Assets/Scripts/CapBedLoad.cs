@@ -85,6 +85,20 @@ public class CapBedLoad : MonoBehaviour
             Destroy(moundGo);
     }
 
+    // The mound is no child of the vessel (its own kinematic body): it goes and comes with the machine (CAP review
+    // a846 #11: a machine switched off left its load hanging where it stood, LiDAR seeing it)
+    private void OnDisable()
+    {
+        if (moundGo != null)
+            moundGo.SetActive(false);
+    }
+
+    private void OnEnable()
+    {
+        if (moundGo != null)
+            moundGo.SetActive(true);
+    }
+
     /// <summary>落ちてきた土 volume [m3] を積む</summary>
     public void Add(float volume)
     {

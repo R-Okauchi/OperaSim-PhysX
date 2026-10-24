@@ -183,6 +183,21 @@ public class SoilParticleSettings : MonoBehaviour
         }
 
         tiler = GetComponent<TerrainTiler>();
+        if (instance == this && tiler == null)
+        {
+            // The terrain the soil changes is a copy of the asset's (CAP review a846 #7): upstream dug the asset itself
+            // and gave its heights back only on quit - saved before then (a test's asset was), the dug ground stayed in
+            // the project. The terrain and its collider take the copy (a tiled terrain makes its tiles' own data).
+            var terrain = GetComponent<Terrain>();
+            if (terrain != null && terrain.terrainData != null)
+            {
+                var copy = Instantiate(terrain.terrainData);
+                copy.name = terrain.terrainData.name + " (run)";
+                terrain.terrainData = copy;
+                var terrainCollider = GetComponent<TerrainCollider>();
+                if (terrainCollider != null) terrainCollider.terrainData = copy;
+            }
+        }
 
         cs = Instantiate(Resources.Load<ComputeShader>("Thermal"));
         if (cs == null)
