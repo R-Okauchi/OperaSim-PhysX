@@ -266,6 +266,72 @@ namespace CapKit.Tests
         }
 
         [UnityTest, Timeout(600000)]
+        public IEnumerator DozerMachineControlHoldsTheEdgeToTheDesign()
+        {
+            // The machine's own MC (CapBladeMC) engaged at a design 0.08 m above flat ground: over a 1.5 m3 heap and a
+            // 0.15 m fill's edge the cut is at the design (the edge held on the machine, every physics step)
+            LogAssert.ignoreFailingMessages = true;
+            SceneManager.sceneLoaded += NoParticles;
+            yield return CapTestScene.LoadFresh(Scene);
+            SceneManager.sceneLoaded -= NoParticles;
+            yield return new WaitForSeconds(1.0f);
+            var soil = SoilParticleSettings.instance;
+            var terrain = soil.GetComponent<Terrain>();
+            var dozer = Spawn(LaneB + new Vector3(0f, 0f, 20f), 0f);
+            var drive = dozer.GetComponent<CapTrackKinematic>();
+            var mc = dozer.GetComponent<CapBladeMC>();
+            var hub = dozer.transform.Find("base_link");
+            Assert.IsNotNull(mc, "no CapBladeMC on the dozer");
+            yield return Seconds(2f);
+            Vector3 ahead = hub.forward;
+            ahead.y = 0f;
+            ahead.Normalize();
+            float ground = terrain.SampleHeight(hub.position) + terrain.transform.position.y;
+            Vector3 heap = hub.position + ahead * 8f;
+            heap.y = 0f;
+            CapSoilStamp.Cone(soil, heap, 1.5, 30f);
+            // a fill's edge across the lane further on: 0.15 m up for 3 m
+            var at = new System.Collections.Generic.List<Vector2Int>();
+            var w = new System.Collections.Generic.List<float>();
+            Vector3 side = Vector3.Cross(Vector3.up, ahead);
+            Vector3 f0 = soil.ToTexel(hub.position + ahead * 12f - side * 2.5f), f1 = soil.ToTexel(hub.position + ahead * 15f + side * 2.5f);
+            for (int y = Mathf.FloorToInt(Mathf.Min(f0.y, f1.y)); y <= Mathf.CeilToInt(Mathf.Max(f0.y, f1.y)); y++)
+            for (int x = Mathf.FloorToInt(Mathf.Min(f0.x, f1.x)); x <= Mathf.CeilToInt(Mathf.Max(f0.x, f1.x)); x++)
+            {
+                at.Add(new Vector2Int(x, y));
+                w.Add(1f);
+            }
+            CapSoilStamp.Stamp(soil, at, w, at.Count * soil.TexelArea * 0.15);
+            yield return Seconds(0.5f);
+            double design = ground + 0.08;
+            Vector3 u0 = hub.position;
+            mc.Engage(design, 0.0, 0.0, 0.0, 0.0, 0.0);         // level (the ROS frame's terms only matter for a slope)
+            yield return Seconds(1.5f);
+            Vector3 p0 = hub.position;
+            drive.SetCommand(0.6, 0.0);
+            float t0 = Time.time;
+            while (Vector3.Dot(hub.position - p0, ahead) < 16f && Time.time - t0 < 50f) yield return new WaitForFixedUpdate();
+            drive.SetCommand(0.0, 0.0);
+            yield return Seconds(1.5f);
+            mc.Disengage();
+            // the swath's middle where the heap stood and where the fill's top was: at the design
+            float worst = 0f;
+            int n = 0;
+            foreach (float s in new[] { 7.0f, 7.5f, 8.0f, 8.5f, 9.0f, 13.0f, 13.5f, 14.0f })
+            {
+                Vector3 p = u0 + ahead * s;
+                float h = terrain.SampleHeight(p) + terrain.transform.position.y;
+                worst = Mathf.Max(worst, Mathf.Abs((float)(h - design)));
+                n++;
+            }
+            Log($"M: the machine's MC at {design:F3} m: the swath within {worst * 100f:F1} cm of the design at {n} " +
+                $"stations; edge error {mc.EdgeErrorM * 100.0:F1} cm, {mc.Ticks} ticks, {mc.OutOfReach} out of reach");
+            Assert.Greater(mc.Ticks, 100, "the MC never ran");
+            Assert.Less(worst, 0.03f, "the cut is off the design");
+            Object.Destroy(dozer);
+        }
+
+        [UnityTest, Timeout(600000)]
         public IEnumerator DozerBladeNeverDigsWithANegativeLoad()
         {
             // A load a rounding below zero, the edge 0.10 m above flat ground (where the blade fills): nothing is

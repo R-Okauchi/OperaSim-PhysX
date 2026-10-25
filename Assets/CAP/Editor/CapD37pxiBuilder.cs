@@ -205,6 +205,18 @@ namespace CapKit.Editor
             var edgeLeft = Marker(blade.transform, "cap_edge_left", EdgeLeftUrdf);
             var edgeRight = Marker(blade.transform, "cap_edge_right", EdgeRightUrdf);
 
+            // the machine's own MC (CapBladeMC): the edge held to the design on the machine, every physics step
+            var mc = robot.AddComponent<CapBladeMC>();
+            mc.edgeLeft = edgeLeft;
+            mc.edgeRight = edgeRight;
+            mc.drive = bladeDrive;
+            mc.liftLower = -0.41f;
+            mc.liftUpper = 0.187f;
+            mc.tiltLimit = 0.136f;
+            mc.halfWidth = EdgeLeftUrdf.y;
+            mc.targetTopic = $"{Ns}/mc/target";
+            mc.stateTopic = $"{Ns}/mc/state";
+
             // the blade in the soil (CapBlade.compute): cuts, carries, spills and lays down, before the soil's slides
             var soil = robot.AddComponent<CapDozerBlade>();
             soil.edgeLeft = edgeLeft;
