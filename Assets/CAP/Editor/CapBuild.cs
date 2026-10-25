@@ -20,10 +20,29 @@ namespace CapKit.Editor
     /// </summary>
     public static class CapBuild
     {
-        public static void Linux()
+        /// <summary>The simulator as a macOS player (Metal, fast cameras: the videos of a run in the cluster, its ROS-TCP to
+        /// the cluster's bridge): Builds/mac/OperaSim.app by default.
+        ///   Unity -batchmode -quit -buildTarget OSXUniversal -projectPath ... -executeMethod CapKit.Editor.CapBuild.Mac
+        /// </summary>
+        public static void Mac()
         {
             string output = Environment.GetEnvironmentVariable("CAP_BUILD_OUT");
-            if (string.IsNullOrWhiteSpace(output)) output = "Builds/linux";
+            if (string.IsNullOrWhiteSpace(output)) output = "Builds/mac";
+            var list = Scenes();
+            Directory.CreateDirectory(output);
+            var report = BuildPipeline.BuildPlayer(new BuildPlayerOptions
+            {
+                scenes = list,
+                locationPathName = Path.Combine(output, "OperaSim.app"),
+                target = BuildTarget.StandaloneOSX,
+                targetGroup = BuildTargetGroup.Standalone,
+                options = BuildOptions.None,
+            });
+            Finish(report, list);
+        }
+
+        private static string[] Scenes()
+        {
             string scenes = Environment.GetEnvironmentVariable("CAP_BUILD_SCENES");
             if (string.IsNullOrWhiteSpace(scenes)) scenes = "Assets/Scenes/SimpleScene.unity";
             var list = scenes.Split(',').Select(s => s.Trim()).Where(s => s.Length > 0).ToArray();
@@ -31,6 +50,26 @@ namespace CapKit.Editor
             {
                 if (!File.Exists(s)) throw new FileNotFoundException($"[CapBuild] no scene {s}");
             }
+            return list;
+        }
+
+        private static void Finish(BuildReport report, string[] list)
+        {
+            var summary = report.summary;
+            Debug.Log($"[CapBuild] {summary.result}: {summary.outputPath}, {summary.totalSize / 1e6:F0} MB in " +
+                      $"{summary.totalTime.TotalSeconds:F0} s, {summary.totalErrors} errors, {summary.totalWarnings} warnings " +
+                      $"({string.Join(", ", list)})");
+            if (Application.isBatchMode)
+            {
+                EditorApplication.Exit(summary.result == BuildResult.Succeeded ? 0 : 1);
+            }
+        }
+
+        public static void Linux()
+        {
+            string output = Environment.GetEnvironmentVariable("CAP_BUILD_OUT");
+            if (string.IsNullOrWhiteSpace(output)) output = "Builds/linux";
+            var list = Scenes();
             Directory.CreateDirectory(output);
             var options = new BuildPlayerOptions
             {
@@ -56,14 +95,7 @@ namespace CapKit.Editor
                 PlayerSettings.SetGraphicsAPIs(BuildTarget.StandaloneLinux64, apis);
                 PlayerSettings.SetUseDefaultGraphicsAPIs(BuildTarget.StandaloneLinux64, automatic);
             }
-            var summary = report.summary;
-            Debug.Log($"[CapBuild] {summary.result}: {summary.outputPath}, {summary.totalSize / 1e6:F0} MB in " +
-                      $"{summary.totalTime.TotalSeconds:F0} s, {summary.totalErrors} errors, {summary.totalWarnings} warnings " +
-                      $"({string.Join(", ", list)})");
-            if (Application.isBatchMode)
-            {
-                EditorApplication.Exit(summary.result == BuildResult.Succeeded ? 0 : 1);
-            }
+            Finish(report, list);
         }
     }
 }
