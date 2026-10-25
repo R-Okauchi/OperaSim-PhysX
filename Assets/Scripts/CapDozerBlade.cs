@@ -34,7 +34,7 @@ public class CapDozerBlade : MonoBehaviour
     public string soilTopic = "[robot_name]/blade/soil";
     public float publishInterval = 0.1f;
     [Tooltip("The blade's state in the log every this many seconds (0: never)")]
-    public float logEveryS = 2f;
+    public float logEveryS = 1f;
     [Tooltip("A step that would cut or fill more than this [m3] is not applied (and is logged): no blade does that in 20 ms")]
     public float stepLimitM3 = 1.5f;
 
@@ -57,6 +57,8 @@ public class CapDozerBlade : MonoBehaviour
     private double cutWindow, fillWindow, spillWindow;
     private float sinceLog, lastAnomalyAt = -1e9f;
     private int anomalies;
+    private WheelCollider[] wheels;
+    private Rigidbody body;
 
     /// <summary>A load put onto the blade without the soil (tests: what a blade carries in).</summary>
     public void Preload(double m3) => LoadM3 += m3;
@@ -70,6 +72,8 @@ public class CapDozerBlade : MonoBehaviour
         acc = new ComputeBuffer(4, sizeof(uint));
         if (hub == null) hub = transform;
         lastHub = hub.position;
+        wheels = GetComponentsInChildren<WheelCollider>();
+        body = GetComponentInParent<Rigidbody>();
         try
         {
             ros = ROSConnection.GetOrCreateInstance();
@@ -214,9 +218,24 @@ public class CapDozerBlade : MonoBehaviour
         sinceLog += dt;
         if (sinceLog < logEveryS) return;
         sinceLog = 0f;
+        // the wheels (all the dozer's contact with the ground): how many touch, their slip, their torque
+        int grounded = 0;
+        float slip = 0f, torque = 0f, load = 0f;
+        foreach (var w in wheels ?? new WheelCollider[0])
+        {
+            torque += w.motorTorque - w.brakeTorque;
+            if (!w.GetGroundHit(out var hit)) continue;
+            grounded++;
+            slip += hit.forwardSlip;
+            load += hit.force;
+        }
+        Vector3 e = hub.rotation.eulerAngles;
+        float pitch = Mathf.DeltaAngle(0f, e.x), roll = Mathf.DeltaAngle(0f, e.z);
+        string drag = body != null ? $" body v {body.velocity.magnitude:F2}" : "";
         Debug.Log($"[CapDozerBlade] t {Time.time:F1} {mode} speed {speed:F2} still {stillFor:F1} s edge {a.y:F3}/{b.y:F3} " +
                   $"ground {groundMax:F3} m; load {LoadM3:F3} cut {CutM3:F3} filled {FilledM3:F3} spilled {SpilledM3:F3} " +
-                  $"laid {RestM3:F3} m3");
+                  $"laid {RestM3:F3} m3; wheels {grounded}/{wheels?.Length ?? 0} slip {(grounded > 0 ? slip / grounded : 0f):F2} " +
+                  $"torque {torque:F0} N m load {load / 1000f:F0} kN; pitch {pitch:F1} roll {roll:F1} deg{drag}");
     }
 
     /// <summary>Spill a volume off the blade's ends, leftShare of it beyond the left end.</summary>
