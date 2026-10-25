@@ -66,7 +66,7 @@ namespace CapKit.Tests
             yield return new WaitForSeconds(1.0f);
 
             var dozer = Spawn(Start, 0f);
-            var drive = dozer.GetComponent<DiffDriveController>();
+            var drive = dozer.GetComponent<CapTrackKinematic>();
             var blade = dozer.GetComponent<CapBladeDrive>();
             var hub = dozer.transform.Find("base_link");
             Assert.IsNotNull(drive);
@@ -206,8 +206,70 @@ namespace CapKit.Tests
             Object.Destroy(dozer);
         }
 
-        /// <summary>Drive the dozer along its heading for a distance at a speed (the blade as it is set).</summary>
-        private static IEnumerator Drive(DiffDriveController drive, Transform hub, float metres, float speed)
+        [UnityTest, Timeout(600000)]
+        public IEnumerator DozerClimbsWhatItsBladeLeaves()
+        {
+            // A fill's edge (0.20 m, a layer's height) across its lane and a 30-degree heap's foot: the tracks go over
+            // both at its pace (live 10-25: WheelColliders stopped at a 0.15 m fill's edge, slipping)
+            LogAssert.ignoreFailingMessages = true;
+            SceneManager.sceneLoaded += NoParticles;
+            yield return CapTestScene.LoadFresh(Scene);
+            SceneManager.sceneLoaded -= NoParticles;
+            yield return new WaitForSeconds(1.0f);
+            var soil = SoilParticleSettings.instance;
+            var dozer = Spawn(LaneB + new Vector3(-8f, 0f, 0f), 0f);
+            var drive = dozer.GetComponent<CapTrackKinematic>();
+            var hub = dozer.transform.Find("base_link");
+            Assert.IsNotNull(drive, "no CapTrackKinematic on the dozer");
+            yield return Seconds(2f);
+            Vector3 ahead = hub.forward;
+            ahead.y = 0f;
+            ahead.Normalize();
+            float ground0 = hub.position.y;
+            // the fill: 4 m along, 4 m across, 0.20 m high, 6 m ahead - its edge a vertical step of the heightmap
+            Vector3 start = hub.position + ahead * 6f;
+            var at = new System.Collections.Generic.List<Vector2Int>();
+            var w = new System.Collections.Generic.List<float>();
+            Vector3 t0 = soil.ToTexel(start - ahead * 0f + Vector3.Cross(Vector3.up, ahead) * -2f);
+            Vector3 t1 = soil.ToTexel(start + ahead * 4f + Vector3.Cross(Vector3.up, ahead) * 2f);
+            for (int y = Mathf.FloorToInt(Mathf.Min(t0.y, t1.y)); y <= Mathf.CeilToInt(Mathf.Max(t0.y, t1.y)); y++)
+            for (int x = Mathf.FloorToInt(Mathf.Min(t0.x, t1.x)); x <= Mathf.CeilToInt(Mathf.Max(t0.x, t1.x)); x++)
+            {
+                at.Add(new Vector2Int(x, y));
+                w.Add(1f);
+            }
+            float cell = Mathf.Sqrt(soil.TexelArea);
+            CapSoilStamp.Stamp(soil, at, w, at.Count * soil.TexelArea * 0.20);
+            CapSoilStamp.Cone(soil, start + ahead * 9f, 1.5, 30f);       // a heap's foot beyond it
+            yield return Seconds(0.5f);
+            Vector3 p0 = hub.position;
+            drive.SetCommand(0.7, 0.0);
+            float tStart = Time.time, topSpeed = 0f, slowest = float.PositiveInfinity, highest = 0f;
+            Vector3 last = hub.position;
+            while (Vector3.Dot(hub.position - p0, ahead) < 14f && Time.time - tStart < 40f)
+            {
+                yield return new WaitForFixedUpdate();
+                float v = Vector3.Dot(hub.position - last, ahead) / Time.fixedDeltaTime;
+                last = hub.position;
+                if (Time.time - tStart > 3f) slowest = Mathf.Min(slowest, v);
+                topSpeed = Mathf.Max(topSpeed, v);
+                highest = Mathf.Max(highest, hub.position.y - ground0);
+            }
+            drive.SetCommand(0.0, 0.0);
+            float covered = Vector3.Dot(hub.position - p0, ahead);
+            Log($"K: over a 0.20 m fill's edge and a heap's foot: {covered:F1} m in {Time.time - tStart:F1} s, slowest " +
+                $"{slowest:F2} m/s, top {topSpeed:F2} m/s, the hub up to {highest:F3} m (cell {cell:F3} m)");
+            Assert.GreaterOrEqual(covered, 14f, "stopped at the fill or the heap");
+            Assert.Greater(slowest, 0.5f, "held up on the way");
+            Assert.Greater(highest, 0.15f, "never climbed onto the fill");
+            Object.Destroy(dozer);
+        }
+
+        /// <summary>Drive the dozer along its heading for a distance at a speed, its edge held at a height of the world
+        /// (CAP's machine control does this on the machine: a blade held to the body digs in where the front of the
+        /// tracks dips into what it cut - the tracks now follow the ground as the twin's do).</summary>
+        private static IEnumerator DriveHolding(CapTrackKinematic drive, Transform hub, CapBladeDrive bladeDrive,
+                                                CapDozerBlade blade, float edgeY, float metres, float speed)
         {
             Vector3 p0 = hub.position;
             Vector3 ahead = hub.forward;
@@ -216,9 +278,16 @@ namespace CapKit.Tests
             drive.SetCommand(speed, 0.0);
             float t0 = Time.time;
             while (Vector3.Dot(hub.position - p0, ahead) < metres && Time.time - t0 < metres / Mathf.Max(0.1f, speed) + 20f)
+            {
+                float edge = Mathf.Min(blade.edgeLeft.position.y, blade.edgeRight.position.y);
+                // lift down positive: about -1.98 m of edge per radian (the contract's kinematics)
+                double lift = bladeDrive.Position("lift_joint") + (edge - edgeY) / 1.98;
+                bladeDrive.SetTarget("lift_joint", System.Math.Max(-0.41, System.Math.Min(0.187, lift)));
                 yield return new WaitForFixedUpdate();
+            }
             drive.SetCommand(0.0, 0.0);
         }
+
 
         [UnityTest, Timeout(900000)]
         public IEnumerator DozerBladeMovesSoilAndKeepsIt()
@@ -246,7 +315,7 @@ namespace CapKit.Tests
 
             // ---- I: the blade at the ground pushes a 1.5 m3 pile 12 m: soil kept, the pile gone from its place
             var dozer = Spawn(LaneA, 0f);
-            var drive = dozer.GetComponent<DiffDriveController>();
+            var drive = dozer.GetComponent<CapTrackKinematic>();
             var bladeDrive = dozer.GetComponent<CapBladeDrive>();
             var blade = dozer.GetComponent<CapDozerBlade>();
             var hub = dozer.transform.Find("base_link");
@@ -263,7 +332,8 @@ namespace CapKit.Tests
             bladeDrive.SetTarget("lift_joint", EdgeAtGround);
             yield return Seconds(1.5f);
             double withPile = soil.WorkingVolume(middle, 14f) + blade.LoadM3;
-            yield return Drive(drive, hub, 12f, 0.7f);
+            float edgeY = Mathf.Min(blade.edgeLeft.position.y, blade.edgeRight.position.y);   // just above the ground
+            yield return DriveHolding(drive, hub, bladeDrive, blade, edgeY, 12f, 0.7f);
             yield return Seconds(2.5f);                              // stops; the load laid before the blade
             double after = soil.WorkingVolume(middle, 14f) + blade.LoadM3;
             float pileTop = soil.GetComponent<Terrain>().SampleHeight(pile) + soil.transform.position.y;
@@ -272,9 +342,8 @@ namespace CapKit.Tests
                 $"{after:F4} m3; where the pile stood the ground is at {pileTop:F3} m");
             Assert.AreEqual(1.5, withPile - before, 0.005, "the pile's volume");
             Assert.AreEqual(withPile, after, 0.01, "soil appeared or vanished under the blade");
-            // A fixed lift: the edge rides with the body over the scene's ground, a few centimetres above it here and
-            // more where the ground dips under the pile - what stood above the edge was cut, what lay below it stays
-            // (live 10-24: 1.131 of 1.5 m3 cut, all of it filled into the lane's hollows ahead)
+            // The edge held at its height above the scene's ground: what stood above it was cut, what lay below it stays
+            // (live 10-24 with a fixed lift: 1.131 of 1.5 m3 cut, all of it filled into the lane's hollows ahead)
             Assert.Greater(blade.CutM3, 0.9, "the blade cut too little of the pile");
             Assert.AreEqual(blade.CutM3, blade.FilledM3 + blade.SpilledM3 + blade.RestM3 + blade.LoadM3, 0.005,
                 "the blade's ledger: what it cut went into the ground, off its ends, before it or onto it");
@@ -285,7 +354,7 @@ namespace CapKit.Tests
             Object.Destroy(dozer);
             yield return Seconds(0.5f);
             dozer = Spawn(LaneB, 0f);
-            drive = dozer.GetComponent<DiffDriveController>();
+            drive = dozer.GetComponent<CapTrackKinematic>();
             bladeDrive = dozer.GetComponent<CapBladeDrive>();
             blade = dozer.GetComponent<CapDozerBlade>();
             hub = dozer.transform.Find("base_link");
@@ -300,7 +369,8 @@ namespace CapKit.Tests
             bladeDrive.SetTarget("lift_joint", EdgeAtGround);
             yield return Seconds(1.5f);
             double j0 = soil.WorkingVolume(middle, 14f) + blade.LoadM3;
-            yield return Drive(drive, hub, 12f, 0.7f);
+            edgeY = Mathf.Min(blade.edgeLeft.position.y, blade.edgeRight.position.y);
+            yield return DriveHolding(drive, hub, bladeDrive, blade, edgeY, 12f, 0.7f);
             yield return Seconds(2.5f);
             double j1 = soil.WorkingVolume(middle, 14f) + blade.LoadM3;
             Log($"J: 3.5 m3 pushed: cut {blade.CutM3:F3} spilled {blade.SpilledM3:F3} laid {blade.RestM3:F3} m3, soil " +

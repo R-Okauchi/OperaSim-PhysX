@@ -169,6 +169,16 @@ namespace CapKit.Editor
             drive.maxLinearVelocity = 2.3;          // 8.5 km/h
             drive.maxAngularVelocity = 0.6;
             drive.publishMessageInterval = 0.02f;
+            // The tracks as CAP's twin has them (CapTrackKinematic switches the controller above and the wheels off, and
+            // takes the controller's topics): six WheelColliders could not climb the edge of what the blade fills
+            var tracks = robot.AddComponent<CapTrackKinematic>();
+            tracks.hub = baseLink;
+            tracks.maxLinear = 2.3f;
+            tracks.maxAngular = 0.6f;
+            tracks.lagS = 0.5f;
+            tracks.halfLength = 1.2f;
+            tracks.halfGauge = WheelY;
+            tracks.hubAboveGround = -TrackBottom;
 
             robot.AddComponent<EmergencyStop>();    // [robot_name]/emg_stop
             var joints = robot.AddComponent<JointStatePublisher>();
