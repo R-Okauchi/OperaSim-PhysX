@@ -33,6 +33,10 @@ public class CapDozerBlade : MonoBehaviour
     public float angleMaxRad = 0.419f;
     public string soilTopic = "[robot_name]/blade/soil";
     public float publishInterval = 0.1f;
+    [Tooltip("The blade's state in the log every this many seconds (0: never)")]
+    public float logEveryS = 2f;
+    [Tooltip("A step that would cut or fill more than this [m3] is not applied (and is logged): no blade does that in 20 ms")]
+    public float stepLimitM3 = 1.5f;
 
     public double LoadM3 { get; private set; }
     public double CutM3 { get; private set; }
@@ -51,6 +55,8 @@ public class CapDozerBlade : MonoBehaviour
     private string topic;
     private float sinceSent;
     private double cutWindow, fillWindow, spillWindow;
+    private float sinceLog, lastAnomalyAt = -1e9f;
+    private int anomalies;
 
     /// <summary>A load put onto the blade without the soil (tests: what a blade carries in).</summary>
     public void Preload(double m3) => LoadM3 += m3;
@@ -105,6 +111,7 @@ public class CapDozerBlade : MonoBehaviour
             groundMax = Mathf.Max(groundMax, terrain.SampleHeight(p) + terrain.transform.position.y);
         }
         bool clear = Mathf.Min(a.y, b.y) > groundMax + clearM;
+        Status(dt, speed, a, b, groundMax, speed < -0.1f ? "back" : clear ? "clear" : stillFor > restAfterS ? "still" : "cut");
 
         if (speed < -0.1f || clear || stillFor > restAfterS)
         {
@@ -114,6 +121,15 @@ public class CapDozerBlade : MonoBehaviour
         }
 
         Vector3 ta = soil.ToTexel(a), tb = soil.ToTexel(b);
+        // An edge off the terrain's heights (a glitch of the body's joints, a NaN) would carve the terrain to its bottom:
+        // not applied, said (10-25: 37 vertices to -50 m under a blade on the cluster's player)
+        const float topTexture = 32766f / 65535f;
+        if (!Finite(a) || !Finite(b) || ta.z < 0f || tb.z < 0f || ta.z > topTexture || tb.z > topTexture)
+        {
+            Anomaly($"the edge off the terrain: a {a} b {b} texel {ta} {tb}");
+            Publish(dt);
+            return;
+        }
         var size = soil.HeightmapSize;
         int pad = Mathf.CeilToInt(bandVertices) + 2;
         int x0 = Mathf.Max(0, Mathf.FloorToInt(Mathf.Min(ta.x, tb.x)) - pad);
@@ -142,6 +158,13 @@ public class CapDozerBlade : MonoBehaviour
         cs.Dispatch(kMeasure, gx, gy, 1);
         acc.GetData(got);
         double cut = got[0] / CapSoilStamp.QuantaPerM3, demand = got[1] / CapSoilStamp.QuantaPerM3;
+        if (cut > stepLimitM3 || demand > stepLimitM3)
+        {
+            Anomaly($"a step of cut {cut:F3} demand {demand:F3} m3 over {got[2]} vertices: edge a {a} b {b} texel {ta} " +
+                    $"{tb} rect {rect} ground {groundMax:F3} speed {speed:F2}");
+            Publish(dt);
+            return;
+        }
         float fill = demand > 0.0 ? (float)System.Math.Min(1.0, (LoadM3 + cut) / demand) : 0f;
 
         acc.SetData(new uint[4]);
@@ -172,6 +195,28 @@ public class CapDozerBlade : MonoBehaviour
             Spill(a, b, over, leftShare);
         }
         Publish(dt);
+    }
+
+    private static bool Finite(Vector3 v) => !(float.IsNaN(v.x) || float.IsNaN(v.y) || float.IsNaN(v.z) ||
+                                               float.IsInfinity(v.x) || float.IsInfinity(v.y) || float.IsInfinity(v.z));
+
+    private void Anomaly(string what)
+    {
+        anomalies++;
+        if (Time.time - lastAnomalyAt < 1f) return;        // once a second at most
+        lastAnomalyAt = Time.time;
+        Debug.LogWarning($"[CapDozerBlade] t {Time.time:F2} not applied ({anomalies} so far): {what}");
+    }
+
+    private void Status(float dt, float speed, Vector3 a, Vector3 b, float groundMax, string mode)
+    {
+        if (logEveryS <= 0f) return;
+        sinceLog += dt;
+        if (sinceLog < logEveryS) return;
+        sinceLog = 0f;
+        Debug.Log($"[CapDozerBlade] t {Time.time:F1} {mode} speed {speed:F2} still {stillFor:F1} s edge {a.y:F3}/{b.y:F3} " +
+                  $"ground {groundMax:F3} m; load {LoadM3:F3} cut {CutM3:F3} filled {FilledM3:F3} spilled {SpilledM3:F3} " +
+                  $"laid {RestM3:F3} m3");
     }
 
     /// <summary>Spill a volume off the blade's ends, leftShare of it beyond the left end.</summary>
