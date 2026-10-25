@@ -48,7 +48,8 @@ bool Under(int2 p, out float he)
     return true;
 }
 
-uint Quanta(float dh) { return (uint)round(dh * qPerTex); }
+// Never negative: a uint of a negative difference wraps round (a fill that lowered the ground counted 4e9 quanta)
+uint Quanta(float dh) { return (uint)round(max(dh, 0.0) * qPerTex); }
 
 void Blade(uint3 id, bool apply)
 {
@@ -74,8 +75,8 @@ void Blade(uint3 id, bool apply)
     {
         if (apply)
         {
-            float hn = h + fillFrac * (he - h);
-            hn = min(hn, he);
+            float hn = h + saturate(fillFrac) * (he - h);
+            hn = clamp(hn, h, he);                     // a fill raises the ground toward the edge, never lowers it
             heightmap[p] = hn;
             InterlockedAdd(acc[1], Quanta(hn - h));
         }

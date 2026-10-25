@@ -265,6 +265,38 @@ namespace CapKit.Tests
             Object.Destroy(dozer);
         }
 
+        [UnityTest, Timeout(600000)]
+        public IEnumerator DozerBladeNeverDigsWithANegativeLoad()
+        {
+            // A load a rounding below zero, the edge 0.10 m above flat ground (where the blade fills): nothing is
+            // filled and nothing dug (10-25: a negative fill fraction lowered the ground, its count wrapped round and
+            // the blade dug to the terrain's bottom)
+            LogAssert.ignoreFailingMessages = true;
+            SceneManager.sceneLoaded += NoParticles;
+            yield return CapTestScene.LoadFresh(Scene);
+            SceneManager.sceneLoaded -= NoParticles;
+            yield return new WaitForSeconds(1.0f);
+            var soil = SoilParticleSettings.instance;
+            var dozer = Spawn(LaneA + new Vector3(0f, 0f, 20f), 0f);
+            var drive = dozer.GetComponent<CapTrackKinematic>();
+            var bladeDrive = dozer.GetComponent<CapBladeDrive>();
+            var blade = dozer.GetComponent<CapDozerBlade>();
+            var hub = dozer.transform.Find("base_link");
+            yield return Seconds(2f);
+            float ground = soil.GetComponent<Terrain>().SampleHeight(hub.position) + soil.transform.position.y;
+            Vector3 middle = hub.position + hub.forward * 5f;
+            double before = soil.WorkingVolume(middle, 8f);
+            blade.Preload(-1e-6);
+            yield return DriveHolding(drive, hub, bladeDrive, blade, ground + 0.10f, 5f, 0.7f);
+            yield return Seconds(1.5f);
+            double after = soil.WorkingVolume(middle, 8f);
+            Log($"L: a load of -1e-6 m3 over 5 m with the edge 0.10 m up: filled {blade.FilledM3:E2} m3, cut " +
+                $"{blade.CutM3:E2} m3, the ground {after - before:E2} m3");
+            Assert.Less(blade.FilledM3, 1e-3, "filled with no load");
+            Assert.AreEqual(before, after, 1e-3, "the ground changed under an empty blade");
+            Object.Destroy(dozer);
+        }
+
         /// <summary>Drive the dozer along its heading for a distance at a speed, its edge held at a height of the world
         /// (CAP's machine control does this on the machine: a blade held to the body digs in where the front of the
         /// tracks dips into what it cut - the tracks now follow the ground as the twin's do).</summary>

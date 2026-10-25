@@ -169,7 +169,10 @@ public class CapDozerBlade : MonoBehaviour
             Publish(dt);
             return;
         }
-        float fill = demand > 0.0 ? (float)System.Math.Min(1.0, (LoadM3 + cut) / demand) : 0f;
+        // In [0, 1]: a load a rounding below zero made a negative fraction, the fill lowered the ground and its count
+        // wrapped round (uint) - the load then hugely negative, and the next steps dug to the terrain's bottom (10-25:
+        // "filled" 95.5 m3 of a cut of 11.3, the edge 9 m down, the dozer at 68 deg in the hole)
+        float fill = demand > 0.0 ? (float)System.Math.Max(0.0, System.Math.Min(1.0, (LoadM3 + cut) / demand)) : 0f;
 
         acc.SetData(new uint[4]);
         cs.SetFloat("fillFrac", fill);
