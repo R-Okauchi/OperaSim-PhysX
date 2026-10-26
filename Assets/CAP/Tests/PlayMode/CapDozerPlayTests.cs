@@ -1014,6 +1014,33 @@ namespace CapKit.Tests
             Assert.AreEqual(0.0, blade.LoadM3, 1e-6, "the load was not laid down when it stopped");
             Object.Destroy(dozer);
         }
+
+        [System.Serializable]
+        private class DumpDone
+        {
+            public string id;
+            public float x, y;
+            public double volume_m3;
+            public bool landed;
+            public float waited_s;
+        }
+
+        [Test]
+        public void DumpDoneIsJson()
+        {
+            // The dump truck's /scenario/dump_done as a reader parses it (10-26: "waited_s": F1} - composite formatting
+            // took "{5:F1}}}" for the format "F1}" - and the Site dropped every load's done)
+            string json = CapScenarioOps.DumpDoneJson("load-1", 25f, -32.5f, 5.5, false, 600f);
+            Log($"S: {json}");
+            Assert.IsFalse(json.Contains("F1"), json);
+            var d = JsonUtility.FromJson<DumpDone>(json);
+            Assert.AreEqual("load-1", d.id);
+            Assert.AreEqual(25f, d.x, 1e-6f);
+            Assert.AreEqual(-32.5f, d.y, 1e-6f);
+            Assert.AreEqual(5.5, d.volume_m3, 1e-9);
+            Assert.IsFalse(d.landed);
+            Assert.AreEqual(600f, d.waited_s, 1e-6f);
+        }
     }
 }
 #endif

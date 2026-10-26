@@ -295,11 +295,20 @@ public class CapScenarioOps : MonoBehaviour
             dumpWaitSince = -1f;
             double laid = landed ? CapSoilStamp.Cone(SoilParticleSettings.instance, new Vector3(-d.y, 0f, d.x), d.v,
                                                      config.dump_repose_deg) : 0.0;
-            ros?.Publish("/scenario/dump_done", new StringMsg(string.Format(CultureInfo.InvariantCulture,
-                "{{\"id\": \"{0}\", \"x\": {1}, \"y\": {2}, \"volume_m3\": {3:F4}, \"landed\": {4}, \"waited_s\": {5:F1}}}",
-                d.id, d.x, d.y, laid, landed ? "true" : "false", waited)));
+            ros?.Publish("/scenario/dump_done", new StringMsg(DumpDoneJson(d.id, d.x, d.y, laid, landed, waited)));
             Debug.Log($"[{nameof(CapScenarioOps)}] {(landed ? "dumped" : "not dumped (the spot never cleared)")} {d.id}: {laid:F3} m3 at ({d.x}, {d.y})");
         }
+    }
+
+    /// <summary>A load's /scenario/dump_done: what landed where, whether, after how long a wait. Each number written on
+    /// its own: composite formatting reads "{5:F1}}}" as the format "F1}" (the "}}" inside the item is an escaped
+    /// brace) and wrote "waited_s": F1} - JSON no reader takes (10-26: the Site dropped every load's done).</summary>
+    public static string DumpDoneJson(string id, float x, float y, double laidM3, bool landed, float waitedS)
+    {
+        var inv = CultureInfo.InvariantCulture;
+        return "{\"id\": \"" + id + "\", \"x\": " + x.ToString("R", inv) + ", \"y\": " + y.ToString("R", inv) +
+               ", \"volume_m3\": " + laidM3.ToString("F4", inv) + ", \"landed\": " + (landed ? "true" : "false") +
+               ", \"waited_s\": " + waitedS.ToString("F1", inv) + "}";
     }
 
     private void OnFaultRequest(StringMsg msg)
