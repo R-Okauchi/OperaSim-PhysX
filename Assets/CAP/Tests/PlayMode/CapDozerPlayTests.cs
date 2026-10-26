@@ -61,6 +61,115 @@ namespace CapKit.Tests
 
         private static float YawChange(float from, float to) => Mathf.DeltaAngle(from, to);
 
+        // The rig's self masks (Assets/CAP/sensor_rig.json, scripts/export_sensor_rig.py: the contract's kit.self_mask in
+        // the hub frame, ROS): the volumes CAP's kit takes for the machine's own returns
+        [System.Serializable] private sealed class RigFile { public RigMachine[] machines; }
+        [System.Serializable] private sealed class RigMachine { public string machine_id; public RigMask self_mask; public RigSensor[] sensors; }
+        [System.Serializable] private sealed class RigMask { public RigHull hull; public RigBox undercarriage; public RigBox[] extra_boxes; }
+        [System.Serializable] private sealed class RigHull { public float[] center_xy_m; public float radius_m, z_min_m, z_max_m; }
+        [System.Serializable] private sealed class RigBox { public float[] center_xy_m; public float length_m, width_m, z_min_m, z_max_m; }
+        [System.Serializable] private sealed class RigSensor { public string sensor_id, kind; public bool populated; public RigFov fov; }
+        [System.Serializable] private sealed class RigFov { public float h_deg, v_min_deg, v_max_deg; }
+
+        /// <summary>How far a hub-frame ROS point lies outside the mask's volumes [m] (0: inside one of them).</summary>
+        private static float OutsideMask(Vector3 p, RigMask m)
+        {
+            float Band(float z, float lo, float hi) => Mathf.Max(0f, lo - z, z - hi);
+            var h = m.hull;
+            float best = Mathf.Max(Mathf.Max(0f, Mathf.Sqrt(Sq(p.x - h.center_xy_m[0]) + Sq(p.y - h.center_xy_m[1])) - h.radius_m),
+                                   Band(p.z, h.z_min_m, h.z_max_m));
+            var boxes = new List<RigBox>(m.extra_boxes ?? new RigBox[0]);
+            if (m.undercarriage != null && m.undercarriage.length_m > 0f) boxes.Add(m.undercarriage);
+            foreach (var b in boxes)
+            {
+                float out_ = Mathf.Max(Mathf.Max(0f, Mathf.Abs(p.x - b.center_xy_m[0]) - b.length_m / 2f),
+                                       Mathf.Max(0f, Mathf.Abs(p.y - b.center_xy_m[1]) - b.width_m / 2f),
+                                       Band(p.z, b.z_min_m, b.z_max_m));
+                best = Mathf.Min(best, out_);
+            }
+            return best;
+        }
+
+        private static float Sq(float v) => v * v;
+
+        [UnityTest, Timeout(900000)]
+        public IEnumerator DozerOwnReturnsStayInItsSelfMask()
+        {
+            // What the kit's LiDARs meet of the dozer itself - its colliders: every raycast meets layer 3 - stands inside
+            // the self mask the contract gives CAP's kit, or the guard reads it as an obstacle beside the machine (10-26:
+            // the root's box collider, 0.575 m past the body's rear, stood a 1 m "object" at its rear corner and stopped
+            // every pass). Each kit LiDAR's field of view cast at 1 deg from its frame, the blade raised, held, lowered and
+            // tilted.
+            LogAssert.ignoreFailingMessages = true;  // ROS-TCP has no endpoint here
+            SceneManager.sceneLoaded += NoParticles;
+            yield return CapTestScene.LoadFresh(Scene);
+            SceneManager.sceneLoaded -= NoParticles;
+            yield return new WaitForSeconds(1.0f);
+
+            var rig = JsonUtility.FromJson<RigFile>(File.ReadAllText("Assets/CAP/sensor_rig.json"));
+            RigMachine spec = null;
+            foreach (var m in rig.machines) if (m.machine_id == "d37pxi") spec = m;
+            Assert.IsNotNull(spec, "no d37pxi in sensor_rig.json (scripts/export_sensor_rig.py)");
+            Assert.IsNotNull(spec.self_mask, "the rig has no self mask for d37pxi");
+            Assert.Greater(spec.self_mask.hull.radius_m, 0f);
+
+            var dozer = Spawn(Start, 0f);
+            var blade = dozer.GetComponent<CapBladeDrive>();
+            var hub = dozer.transform.Find("base_link");
+            Assert.IsNotNull(hub);
+            yield return Seconds(4f);                 // drops onto its tracks and settles
+            var frames = new Dictionary<string, Transform>();
+            foreach (var t in dozer.GetComponentsInChildren<Transform>(true)) frames[t.name] = t;
+
+            double[,] poses = { { -0.2, 0.0 }, { -0.41, 0.0 }, { 0.18, 0.0 }, { -0.41, 0.13 }, { -0.41, -0.13 } };  // lift, tilt
+            int selfHits = 0, rays = 0;
+            float worst = 0f;
+            string worstAt = "";
+            for (int k = 0; k < poses.GetLength(0); k++)
+            {
+                blade.SetTarget("lift_joint", poses[k, 0]);
+                blade.SetTarget("tilt_joint", poses[k, 1]);
+                yield return Seconds(4f);                 // 0.3 rad/s: any change within 2.1 s
+                int posed = 0;
+                foreach (var s in spec.sensors)
+                {
+                    if (s.kind != "lidar" || !s.populated) continue;
+                    Assert.IsTrue(frames.ContainsKey("kit_" + s.sensor_id), "no kit_" + s.sensor_id + " on the dozer");
+                    var frame = frames["kit_" + s.sensor_id];
+                    for (float el = s.fov.v_min_deg; el <= s.fov.v_max_deg + 1e-3f; el += 1f)
+                    {
+                        for (float az = 0f; az < 360f; az += 1f)
+                        {
+                            float ce = Mathf.Cos(el * Mathf.Deg2Rad), se = Mathf.Sin(el * Mathf.Deg2Rad);
+                            float ca = Mathf.Cos(az * Mathf.Deg2Rad), sa = Mathf.Sin(az * Mathf.Deg2Rad);
+                            // the sensor's ROS direction (x forward, y left, z up) in Unity's axes of its frame
+                            var dir = frame.TransformDirection(new Vector3(-ce * sa, se, ce * ca));
+                            rays++;
+                            // as the LiDAR's RaycastCommand: the default layers, triggers as the project says
+                            if (!Physics.Raycast(frame.position, dir, out RaycastHit hit, 40f)) continue;
+                            if (!hit.collider.transform.IsChildOf(dozer.transform)) continue;
+                            selfHits++;
+                            posed++;
+                            Vector3 u = hub.InverseTransformPoint(hit.point);
+                            var ros = new Vector3(u.z, -u.x, u.y);
+                            float outside = OutsideMask(ros, spec.self_mask);
+                            if (outside > worst)
+                            {
+                                worst = outside;
+                                worstAt = $"{s.sensor_id} lift {poses[k, 0]:F2} tilt {poses[k, 1]:F2}: {hit.collider.name} at " +
+                                          $"({ros.x:F3}, {ros.y:F3}, {ros.z:F3}) in the hub";
+                            }
+                        }
+                    }
+                }
+                Log($"M: lift {poses[k, 0]:F2} tilt {poses[k, 1]:F2}: {posed} of the dozer's own returns");
+            }
+            Log($"M: {rays} rays, {selfHits} met the dozer itself; the farthest outside its self mask {worst:F3} m ({worstAt})");
+            Assert.Greater(selfHits, 1000, "the kit's LiDARs never met the dozer: the check checks nothing");
+            Assert.LessOrEqual(worst, 0.0f, "a return of the dozer's own outside its self mask: " + worstAt);
+            Object.Destroy(dozer);
+        }
+
         [UnityTest, Timeout(900000)]
         public IEnumerator DozerDrivesAndMovesItsBlade()
         {

@@ -102,6 +102,44 @@
         "mast_height_m": 0.3,
         "bracket_family": "cabroof_rail_clamp"
       },
+      "self_mask": {
+        "hull": {
+          "center_xy_m": [
+            0.0,
+            0.0
+          ],
+          "radius_m": 3.4,
+          "z_min_m": -0.08,
+          "z_max_m": 4.0
+        },
+        "undercarriage": {
+          "center_xy_m": [
+            0.0,
+            0.0
+          ],
+          "length_m": 4.6,
+          "width_m": 2.98,
+          "z_min_m": -1.18,
+          "z_max_m": -0.08
+        },
+        "extra_boxes": [
+          {
+            "center_xy_m": [
+              2.715,
+              1.41
+            ],
+            "length_m": 0.43,
+            "width_m": 0.18,
+            "z_min_m": -0.45,
+            "z_max_m": -0.08
+          }
+        ],
+        "arm_band": null,
+        "dump_shadow_sector_deg": [
+          135.0,
+          225.0
+        ]
+      },
       "sensors": [
         {
           "sensor_id": "roof",
@@ -531,6 +569,50 @@
       "mechanical": {
         "mast_height_m": 0.35,
         "bracket_family": "cabroof_rail_clamp"
+      },
+      "self_mask": {
+        "hull": {
+          "center_xy_m": [
+            0.0,
+            0.0
+          ],
+          "radius_m": 3.6,
+          "z_min_m": -0.15,
+          "z_max_m": 5.0
+        },
+        "undercarriage": {
+          "center_xy_m": [
+            0.0,
+            0.0
+          ],
+          "length_m": 4.16,
+          "width_m": 2.79,
+          "z_min_m": -1.35,
+          "z_max_m": -0.15
+        },
+        "extra_boxes": [
+          {
+            "center_xy_m": [
+              0.0,
+              0.0
+            ],
+            "length_m": 5.6,
+            "width_m": 5.6,
+            "z_min_m": -0.85,
+            "z_max_m": -0.15
+          }
+        ],
+        "arm_band": {
+          "sector_deg": [
+            -30.0,
+            30.0
+          ],
+          "reach_m": 10.0,
+          "above_ground_m": 0.25,
+          "mark": "unobserved",
+          "max_ground_slope_deg": 30.0
+        },
+        "dump_shadow_sector_deg": null
       },
       "sensors": [
         {
@@ -962,6 +1044,50 @@
         "mast_height_m": 0.3,
         "bracket_family": "cabroof_rail_clamp"
       },
+      "self_mask": {
+        "hull": {
+          "center_xy_m": [
+            0.0,
+            0.0
+          ],
+          "radius_m": 3.6,
+          "z_min_m": 0.35,
+          "z_max_m": 5.0
+        },
+        "undercarriage": {
+          "center_xy_m": [
+            0.0,
+            0.0
+          ],
+          "length_m": 3.58,
+          "width_m": 2.49,
+          "z_min_m": -0.83,
+          "z_max_m": 0.35
+        },
+        "extra_boxes": [
+          {
+            "center_xy_m": [
+              0.0,
+              0.0
+            ],
+            "length_m": 5.6,
+            "width_m": 5.6,
+            "z_min_m": -0.33,
+            "z_max_m": 0.35
+          }
+        ],
+        "arm_band": {
+          "sector_deg": [
+            -30.0,
+            30.0
+          ],
+          "reach_m": 8.3,
+          "above_ground_m": 0.25,
+          "mark": "unobserved",
+          "max_ground_slope_deg": 30.0
+        },
+        "dump_shadow_sector_deg": null
+      },
       "sensors": [
         {
           "sensor_id": "roof",
@@ -1391,6 +1517,33 @@
       "mechanical": {
         "mast_height_m": 0.3,
         "bracket_family": "frame_clamp"
+      },
+      "self_mask": {
+        "hull": {
+          "center_xy_m": [
+            0.0,
+            0.0
+          ],
+          "radius_m": 3.8,
+          "z_min_m": 0.9,
+          "z_max_m": 4.0
+        },
+        "undercarriage": {
+          "center_xy_m": [
+            0.0,
+            0.0
+          ],
+          "length_m": 4.6,
+          "width_m": 2.5,
+          "z_min_m": -0.21,
+          "z_max_m": 0.9
+        },
+        "extra_boxes": [],
+        "arm_band": null,
+        "dump_shadow_sector_deg": [
+          135.0,
+          225.0
+        ]
       },
       "sensors": [
         {
@@ -1822,6 +1975,33 @@
         "mast_height_m": 0.25,
         "bracket_family": "rops_clamp"
       },
+      "self_mask": {
+        "hull": {
+          "center_xy_m": [
+            0.0,
+            0.0
+          ],
+          "radius_m": 2.0,
+          "z_min_m": 0.6,
+          "z_max_m": 3.0
+        },
+        "undercarriage": {
+          "center_xy_m": [
+            0.0,
+            0.0
+          ],
+          "length_m": 2.3,
+          "width_m": 1.7,
+          "z_min_m": -0.25,
+          "z_max_m": 0.6
+        },
+        "extra_boxes": [],
+        "arm_band": null,
+        "dump_shadow_sector_deg": [
+          135.0,
+          225.0
+        ]
+      },
       "sensors": [
         {
           "sensor_id": "roof",
@@ -2251,6 +2431,30 @@
       "mechanical": {
         "mast_height_m": 0.15,
         "bracket_family": "cabroof_rail_clamp"
+      },
+      "self_mask": {
+        "hull": {
+          "center_xy_m": [
+            0.5,
+            0.0
+          ],
+          "radius_m": 2.9,
+          "z_min_m": -0.1,
+          "z_max_m": 3.1
+        },
+        "undercarriage": {
+          "center_xy_m": [
+            0.45,
+            0.0
+          ],
+          "length_m": 4.5,
+          "width_m": 3.24,
+          "z_min_m": -0.1,
+          "z_max_m": 1.2
+        },
+        "extra_boxes": [],
+        "arm_band": null,
+        "dump_shadow_sector_deg": null
       },
       "sensors": [
         {

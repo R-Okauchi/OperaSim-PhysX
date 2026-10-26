@@ -133,9 +133,10 @@ namespace CapKit.Editor
             rb.mass = RootMass;
             rb.drag = 0f;
             rb.angularDrag = 0.05f;
-            var box = robot.AddComponent<BoxCollider>();
-            box.center = new Vector3(0f, 0.5f, 0f);
-            box.size = new Vector3(3.24f, 1f, 4.35f);
+            // No collider of the root's own: CapTrackKinematic moves it kinematically (its mass properties play no part)
+            // and nothing of the dozer collides. A box here (3.24 x 1 x 4.35 m, 0.575 m past the body's rear and 0.46 m
+            // past its tracks) was met by the kit's LiDARs - every raycast meets layer 3 - as a 1 m obstacle at the
+            // machine's rear corner, outside its self mask: the guard stopped every pass (10-26).
             var fixedJoint = robot.AddComponent<FixedJoint>();
             fixedJoint.connectedArticulationBody = body;
             fixedJoint.connectedMassScale = 50f;
