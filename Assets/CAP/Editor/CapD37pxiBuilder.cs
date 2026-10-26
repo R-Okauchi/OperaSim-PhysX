@@ -81,6 +81,9 @@ namespace CapKit.Editor
                 Object.DestroyImmediate(robot);
             }
             AssetDatabase.SaveAssets();
+            // its perception kit, as the contract has it (sensor_rig.json): a prefab built again from the URDF keeps it
+            var kit = CapKit.Editor.CapKitRig.ApplyHeadless(new System.Collections.Generic.HashSet<string> { Ns });
+            foreach (var line in kit.Infos.Concat(kit.Warnings).Concat(kit.Errors)) Debug.Log("[CapD37pxi] kit: " + line);
         }
 
         static void Configure(GameObject robot)

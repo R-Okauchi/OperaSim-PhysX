@@ -24,6 +24,19 @@ namespace CapKit.Editor
     public static class CapKitRig
     {
         private const string PrefabFolder = "Assets/Prefab";
+        // A machine spawned by name at run time keeps its prefab under Resources (CapD37pxiBuilder's dozer)
+        private const string ResourcesPrefabFolder = "Assets/Resources/Prefab";
+
+        /// <summary>A machine's prefab: Assets/Prefab's, else Assets/Resources/Prefab's; null when neither has one.</summary>
+        private static string PrefabOf(string machineId)
+        {
+            foreach (var folder in new[] { PrefabFolder, ResourcesPrefabFolder })
+            {
+                string path = folder + "/" + machineId + ".prefab";
+                if (File.Exists(path)) return path;
+            }
+            return null;
+        }
         private const string DeviceName = "device";
 
         public sealed class Report
@@ -44,13 +57,33 @@ namespace CapKit.Editor
 
         /// <summary>Apply without the closing dialog (a modal dialog blocks an editor driven by a script or MCP):
         /// the report comes back instead, and is in the Console as well.</summary>
-        public static Report ApplyHeadless()
+        public static Report ApplyHeadless() => ApplyHeadless(null);
+
+        /// <summary>The same, to the prefabs of `only` alone (null or empty: every one the rig names).</summary>
+        public static Report ApplyHeadless(HashSet<string> only)
         {
             var report = new Report();
-            try { Apply(report); }
+            try { Apply(report, only); }
             catch (Exception e) { report.Error(e.GetType().Name + ": " + e.Message); }
             finally { AssetDatabase.SaveAssets(); }
             return report;
+        }
+
+        /// <summary>Batch mode (-batchmode -executeMethod CapKit.Editor.CapKitRig.ApplyBatch): the contract's kit applied
+        /// to the prefabs CAP_KIT_ONLY names (comma-separated; every one the rig names when unset) - the others' prefabs
+        /// left as they are - the report in the log, the editor's exit code 0 without errors.</summary>
+        public static void ApplyBatch()
+        {
+            var only = new HashSet<string>((Environment.GetEnvironmentVariable("CAP_KIT_ONLY") ?? "")
+                .Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries).Select(x => x.Trim()));
+            var report = new Report();
+            try { Apply(report, only); }
+            catch (Exception e) { report.Error(e.GetType().Name + ": " + e.Message); }
+            finally { AssetDatabase.SaveAssets(); }
+            foreach (var line in report.Infos) Debug.Log("[CapKitRig] " + line);
+            foreach (var line in report.Warnings) Debug.LogWarning("[CapKitRig] " + line);
+            foreach (var line in report.Errors) Debug.LogError("[CapKitRig] " + line);
+            EditorApplication.Exit(report.Errors.Count == 0 ? 0 : 1);
         }
 
         /// <summary>Never throws out of a menu handler; collects findings into one dialog.</summary>
@@ -67,13 +100,21 @@ namespace CapKit.Editor
         }
 
         // ── apply ─────────────────────────────────────────────────────────────────────
-        private static void Apply(Report report)
+        private static void Apply(Report report) => Apply(report, null);
+
+        private static void Apply(Report report, HashSet<string> only)
         {
             var contract = CapKitContract.Load();
             foreach (var machine in contract.machines)
             {
-                string path = PrefabFolder + "/" + machine.machine_id + ".prefab";
-                if (!File.Exists(path)) { report.Warn(machine.machine_id + ": prefab not found (" + path + "), skipped."); continue; }
+                if (only != null && only.Count > 0 && !only.Contains(machine.machine_id)) continue;
+                string path = PrefabOf(machine.machine_id);
+                if (path == null)
+                {
+                    report.Warn(machine.machine_id + ": prefab not found (" + PrefabFolder + " nor " + ResourcesPrefabFolder +
+                                "), skipped.");
+                    continue;
+                }
                 try { machine.Validate(); }
                 catch (Exception e) { report.Error(machine.machine_id + ": contract invalid: " + e.Message); continue; }
                 GameObject root = PrefabUtility.LoadPrefabContents(path);
@@ -270,7 +311,8 @@ namespace CapKit.Editor
         // ── remove ────────────────────────────────────────────────────────────────────
         private static void Remove(Report report)
         {
-            foreach (string path in Directory.GetFiles(PrefabFolder, "*.prefab"))
+            foreach (string path in new[] { PrefabFolder, ResourcesPrefabFolder }.Where(Directory.Exists)
+                         .SelectMany(folder => Directory.GetFiles(folder, "*.prefab")))
             {
                 string assetPath = path.Replace('\\', '/');
                 GameObject root = PrefabUtility.LoadPrefabContents(assetPath);
