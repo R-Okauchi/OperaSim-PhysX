@@ -18,8 +18,9 @@ using UnityEngine;
 ///   not onto a machine: while one stands within the pile's foot and clearM of the spot the truck waits, up to
 ///   dump_wait_s, then says it did not dump), the region's heights written every period (a float file per dump: the
 ///   scorer's error-map frames) and on request (control.json "terrain_dump": "&lt;name&gt;", for the final score),
-///   people walking given paths (capsules, for the safety tests), and faults switched on at given times or when asked
-///   (/scenario/fault_request: {kind, machine, target, duration_s} - a harness's fault on its own run's events).
+///   people walking given paths (capsules, for the safety tests: each says how close it came to every machine), and
+///   faults switched on at given times or when asked (/scenario/fault_request: {kind, machine, target, duration_s}, a
+///   person {kind: "person", target: its name, path, speed_mps} - a harness's fault on its own run's events).
 /// </summary>
 public class CapScenarioOps : MonoBehaviour
 {
@@ -72,11 +73,13 @@ public class CapScenarioOps : MonoBehaviour
     [Serializable]
     public class Fault
     {
-        public string kind;                 // blade_stall | lidar_off
+        public string kind;                 // blade_stall | lidar_off | person
         public string machine;
-        public string target;               // lidar_off: the sensor's object name
+        public string target;               // lidar_off: the sensor's object name; person: the person's name
         public float at_s;
         public float duration_s;
+        public float[] path;                // person: x0, y0, x1, y1, ... (ROS), walked once
+        public float speed_mps;             // person: its speed (1.2 m/s when not given)
     }
 
     [Serializable]
@@ -334,6 +337,9 @@ public class CapScenarioOps : MonoBehaviour
         Destroy(body.GetComponent<Collider>());
         var kinematic = body.AddComponent<CapsuleCollider>();
         kinematic.isTrigger = true;                                            // seen by the LiDAR's rays, pushes nothing
+        // how close it comes to each machine: its centre to the machine's colliders, across the ground [m]
+        var closest = new Dictionary<string, (float d, float t)>();
+        Debug.Log($"[{nameof(CapScenarioOps)}] {p.name} walks from ({p.path[0]:F1}, {p.path[1]:F1}) at {p.speed_mps:F1} m/s");
         for (int i = 0; i + 3 < p.path.Length; i += 2)
         {
             var a = new Vector3(-p.path[i + 1], 0f, p.path[i]);
@@ -345,21 +351,51 @@ public class CapScenarioOps : MonoBehaviour
                 float g = Ground(at);
                 at.y = (float.IsNaN(g) ? 0f : g) + 0.85f;
                 body.transform.position = at;
+                foreach (var m in GameObject.FindGameObjectsWithTag("robot"))
+                {
+                    float d = ClosestAcross(m, at);
+                    if (!closest.TryGetValue(m.name, out var was) || d < was.d) closest[m.name] = (d, Time.time - t0);
+                }
                 walked += p.speed_mps * Time.deltaTime;
                 yield return null;
             }
         }
-        Debug.Log($"[{nameof(CapScenarioOps)}] {p.name} walked its path");
+        var sb = new StringBuilder();
+        foreach (var kv in closest)
+            sb.Append($" {kv.Key} {kv.Value.d.ToString("F2", CultureInfo.InvariantCulture)} m at t {kv.Value.t:F1}");
+        Debug.Log($"[{nameof(CapScenarioOps)}] {p.name} walked its path; closest to{sb}");
         Destroy(body);
+    }
+
+    /// <summary>How far a point is from a machine across the ground [m]: to the nearest point of its colliders (convex
+    /// shapes; its wheels' and triggers' left out), in the horizontal plane. Infinity without one.</summary>
+    public static float ClosestAcross(GameObject machine, Vector3 at)
+    {
+        float d = float.PositiveInfinity;
+        foreach (var c in machine.GetComponentsInChildren<Collider>())
+        {
+            if (c.isTrigger || !c.enabled || c is WheelCollider) continue;
+            if (c is MeshCollider mc && !mc.convex) continue;              // ClosestPoint takes convex shapes only
+            var q = c.ClosestPoint(new Vector3(at.x, Mathf.Clamp(at.y, c.bounds.min.y, c.bounds.max.y), at.z));
+            d = Mathf.Min(d, Vector2.Distance(new Vector2(q.x, q.z), new Vector2(at.x, at.z)));
+        }
+        return d;
     }
 
     private IEnumerator FaultAt(Fault f)
     {
         while (Time.time - t0 < f.at_s) yield return null;
-        var machine = GameObject.Find(f.machine);
-        if (machine == null)
+        var machine = f.kind == "person" ? null : GameObject.Find(f.machine);
+        if (machine == null && f.kind != "person")
         {
             Debug.LogWarning($"[{nameof(CapScenarioOps)}] fault {f.kind}: no {f.machine}");
+            yield break;
+        }
+        if (f.kind == "person")                                            // a person walks in: no machine of its own
+        {
+            Debug.Log($"[{nameof(CapScenarioOps)}] fault person: {f.target} walks {f.path?.Length / 2} points at {f.speed_mps} m/s");
+            yield return Walk(new Person { name = string.IsNullOrEmpty(f.target) ? "person" : f.target, path = f.path,
+                                           speed_mps = f.speed_mps > 0f ? f.speed_mps : 1.2f, start_s = 0f });
             yield break;
         }
         Debug.Log($"[{nameof(CapScenarioOps)}] fault {f.kind} on {f.machine} for {f.duration_s} s");

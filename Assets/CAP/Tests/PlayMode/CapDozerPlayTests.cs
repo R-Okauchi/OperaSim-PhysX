@@ -171,6 +171,28 @@ namespace CapKit.Tests
         }
 
         [UnityTest, Timeout(900000)]
+        public IEnumerator APersonsDistanceToTheDozerIsAcrossTheGroundToItsBody()
+        {
+            // The person fault's measure (CapScenarioOps.ClosestAcross): a point beside the tracks and one ahead of the
+            // blade, at the distances its body (the URDF's convex colliders) puts them
+            LogAssert.ignoreFailingMessages = true;  // ROS-TCP has no endpoint here
+            SceneManager.sceneLoaded += NoParticles;
+            yield return CapTestScene.LoadFresh(Scene);
+            SceneManager.sceneLoaded -= NoParticles;
+            yield return new WaitForSeconds(1.0f);
+            var dozer = Spawn(Start, 0f);
+            var hub = dozer.transform.Find("base_link");
+            yield return Seconds(4f);
+            Vector3 left = hub.position - hub.right * 5f + Vector3.up * 0.85f;   // ROS +y: 5 m to its left
+            Vector3 ahead = hub.position + hub.forward * 6f + Vector3.up * 0.85f;
+            float side = CapScenarioOps.ClosestAcross(dozer, left), front = CapScenarioOps.ClosestAcross(dozer, ahead);
+            Log($"P: 5 m beside the hub {side:F3} m from the body, 6 m ahead {front:F3} m");
+            Assert.AreEqual(5f - 1.158f, side, 0.05f, "beside: to the tracks' outer face (y 1.158)");
+            Assert.AreEqual(6f - 2.70f, front, 0.10f, "ahead: to the blade's front (x 2.65-2.7 at lift -0.2)");
+            Object.Destroy(dozer);
+        }
+
+        [UnityTest, Timeout(900000)]
         public IEnumerator DozerDrivesAndMovesItsBlade()
         {
             LogAssert.ignoreFailingMessages = true;  // ROS-TCP has no endpoint here
