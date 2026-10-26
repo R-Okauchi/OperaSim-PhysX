@@ -14,10 +14,12 @@ using UnityEngine;
 /// - before the soil starts (AfterSceneLoad): machines spawned from Resources/Prefab (the D37PXi) or switched off,
 ///   the ground shaped (flatten a rectangle to a height with a little roughness);
 /// - once the soil runs: piles laid as cones (exact volumes, CapSoilStamp), a dump truck's stand-in that lays the piles
-///   a Site asks for on /scenario/dump_request after a delay (and says so on /scenario/dump_done), the region's
-///   heights written every period (a float file per dump: the scorer's error-map frames) and on request
-///   (control.json "terrain_dump": "&lt;name&gt;", for the final score), people walking given paths (capsules, for
-///   the safety tests), and faults switched on at given times.
+///   a Site asks for on /scenario/dump_request after a delay (and says so on /scenario/dump_done; as a driver would,
+///   not onto a machine: while one stands within the pile's foot and clearM of the spot the truck waits, up to
+///   dump_wait_s, then says it did not dump), the region's heights written every period (a float file per dump: the
+///   scorer's error-map frames) and on request (control.json "terrain_dump": "&lt;name&gt;", for the final score),
+///   people walking given paths (capsules, for the safety tests), and faults switched on at given times or when asked
+///   (/scenario/fault_request: {kind, machine, target, duration_s} - a harness's fault on its own run's events).
 /// </summary>
 public class CapScenarioOps : MonoBehaviour
 {
@@ -87,6 +89,7 @@ public class CapScenarioOps : MonoBehaviour
         public bool dump_service;
         public float dump_delay_s = 120f;
         public float dump_repose_deg = 34f;
+        public float dump_wait_s = 600f;    // a truck waits this long at a spot a machine stands on, then gives up
         public Region region;
         public Person[] people;
         public Fault[] faults;
@@ -97,6 +100,8 @@ public class CapScenarioOps : MonoBehaviour
     private float t0;
     private ROSConnection ros;
     private readonly Queue<(float at, float x, float y, float v, string id)> dumps = new Queue<(float, float, float, float, string)>();
+    private float dumpWaitSince = -1f;
+    public float clearM = 4f;               // a machine's hub this far beyond a pile's foot leaves the spot clear
 
     // ---- before the soil starts (CapCycleRecorder.Boot, AfterSceneLoad)
 
@@ -219,6 +224,7 @@ public class CapScenarioOps : MonoBehaviour
             ros.Subscribe<StringMsg>("/scenario/dump_request", OnDumpRequest);
             ros.RegisterPublisher<StringMsg>("/scenario/dump_done");
         }
+        ros.Subscribe<StringMsg>("/scenario/fault_request", OnFaultRequest);
         if (config.people != null)
         {
             foreach (var person in config.people) StartCoroutine(Walk(person));
@@ -253,16 +259,60 @@ public class CapScenarioOps : MonoBehaviour
         Debug.Log($"[{nameof(CapScenarioOps)}] dump {r.id} of {r.volume_m3} m3 at ({r.x}, {r.y}) in {at - Time.time:F0} s");
     }
 
+    /// <summary>A machine's root (tag robot, active) within the pile's foot and clearM of the spot (ROS x, y).</summary>
+    private bool Blocked(float x, float y, float volume)
+    {
+        float t = Mathf.Tan(config.dump_repose_deg * Mathf.Deg2Rad);
+        float foot = Mathf.Pow(3f * volume / (Mathf.PI * t), 1f / 3f);
+        var spot = new Vector2(-y, x);                                  // Unity's x, z
+        foreach (var m in GameObject.FindGameObjectsWithTag("robot"))
+        {
+            if (!m.activeInHierarchy || m.transform.parent != null) continue;
+            var p = m.transform.position;
+            if (Vector2.Distance(new Vector2(p.x, p.z), spot) <= foot + clearM) return true;
+        }
+        return false;
+    }
+
     void Update()
     {
         while (dumps.Count > 0 && dumps.Peek().at <= Time.time)
         {
-            var d = dumps.Dequeue();
-            double laid = CapSoilStamp.Cone(SoilParticleSettings.instance, new Vector3(-d.y, 0f, d.x), d.v, config.dump_repose_deg);
+            var d = dumps.Peek();
+            bool landed = true;
+            if (Blocked(d.x, d.y, d.v))
+            {
+                if (dumpWaitSince < 0f)
+                {
+                    dumpWaitSince = Time.time;
+                    Debug.Log($"[{nameof(CapScenarioOps)}] dump {d.id}: a machine at ({d.x}, {d.y}): the truck waits");
+                }
+                if (Time.time - dumpWaitSince < config.dump_wait_s) break;  // still waiting (the next frame looks again)
+                landed = false;
+            }
+            dumps.Dequeue();
+            float waited = dumpWaitSince < 0f ? 0f : Time.time - dumpWaitSince;
+            dumpWaitSince = -1f;
+            double laid = landed ? CapSoilStamp.Cone(SoilParticleSettings.instance, new Vector3(-d.y, 0f, d.x), d.v,
+                                                     config.dump_repose_deg) : 0.0;
             ros?.Publish("/scenario/dump_done", new StringMsg(string.Format(CultureInfo.InvariantCulture,
-                "{{\"id\": \"{0}\", \"x\": {1}, \"y\": {2}, \"volume_m3\": {3:F4}}}", d.id, d.x, d.y, laid)));
-            Debug.Log($"[{nameof(CapScenarioOps)}] dumped {d.id}: {laid:F3} m3 at ({d.x}, {d.y})");
+                "{{\"id\": \"{0}\", \"x\": {1}, \"y\": {2}, \"volume_m3\": {3:F4}, \"landed\": {4}, \"waited_s\": {5:F1}}}",
+                d.id, d.x, d.y, laid, landed ? "true" : "false", waited)));
+            Debug.Log($"[{nameof(CapScenarioOps)}] {(landed ? "dumped" : "not dumped (the spot never cleared)")} {d.id}: {laid:F3} m3 at ({d.x}, {d.y})");
         }
+    }
+
+    private void OnFaultRequest(StringMsg msg)
+    {
+        Fault f;
+        try { f = JsonUtility.FromJson<Fault>(msg.data); }
+        catch (Exception e)
+        {
+            Debug.LogWarning($"[{nameof(CapScenarioOps)}] fault request unreadable: {e.Message}");
+            return;
+        }
+        f.at_s = Time.time - t0;                                       // now
+        StartCoroutine(FaultAt(f));
     }
 
     private IEnumerator Walk(Person p)
