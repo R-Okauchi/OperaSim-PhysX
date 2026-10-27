@@ -64,20 +64,23 @@ namespace CapKit.Tests
         // The rig's self masks (Assets/CAP/sensor_rig.json, scripts/export_sensor_rig.py: the contract's kit.self_mask in
         // the hub frame, ROS): the volumes CAP's kit takes for the machine's own returns
         [System.Serializable] private sealed class RigFile { public RigMachine[] machines; }
-        [System.Serializable] private sealed class RigMachine { public string machine_id; public RigMask self_mask; public RigSensor[] sensors; }
+        [System.Serializable] private sealed class RigMachine { public string machine_id; public RigMask self_mask; public RigSensor[] sensors; public bool upper_swings = true; }
         [System.Serializable] private sealed class RigMask { public RigHull hull; public RigBox undercarriage; public RigBox[] extra_boxes; }
         [System.Serializable] private sealed class RigHull { public float[] center_xy_m; public float radius_m, z_min_m, z_max_m; }
         [System.Serializable] private sealed class RigBox { public float[] center_xy_m; public float length_m, width_m, z_min_m, z_max_m; }
         [System.Serializable] private sealed class RigSensor { public string sensor_id, kind; public bool populated; public RigFov fov; }
         [System.Serializable] private sealed class RigFov { public float h_deg, v_min_deg, v_max_deg; }
 
-        /// <summary>How far a hub-frame ROS point lies outside the mask's volumes [m] (0: inside one of them).</summary>
-        private static float OutsideMask(Vector3 p, RigMask m)
+        /// <summary>How far a hub-frame ROS point lies outside the mask's volumes [m] (0: inside one of them). A machine
+        /// with nothing that swings (upper_swings false) is its boxes only, as CAP's kit masks it (filters.self_mask_body).
+        /// </summary>
+        private static float OutsideMask(Vector3 p, RigMask m, bool upperSwings = true)
         {
             float Band(float z, float lo, float hi) => Mathf.Max(0f, lo - z, z - hi);
             var h = m.hull;
-            float best = Mathf.Max(Mathf.Max(0f, Mathf.Sqrt(Sq(p.x - h.center_xy_m[0]) + Sq(p.y - h.center_xy_m[1])) - h.radius_m),
-                                   Band(p.z, h.z_min_m, h.z_max_m));
+            float best = !upperSwings ? float.PositiveInfinity :
+                Mathf.Max(Mathf.Max(0f, Mathf.Sqrt(Sq(p.x - h.center_xy_m[0]) + Sq(p.y - h.center_xy_m[1])) - h.radius_m),
+                          Band(p.z, h.z_min_m, h.z_max_m));
             var boxes = new List<RigBox>(m.extra_boxes ?? new RigBox[0]);
             if (m.undercarriage != null && m.undercarriage.length_m > 0f) boxes.Add(m.undercarriage);
             foreach (var b in boxes)
@@ -112,6 +115,9 @@ namespace CapKit.Tests
             Assert.IsNotNull(spec, "no d37pxi in sensor_rig.json (scripts/export_sensor_rig.py)");
             Assert.IsNotNull(spec.self_mask, "the rig has no self mask for d37pxi");
             Assert.Greater(spec.self_mask.hull.radius_m, 0f);
+            // nothing on the dozer swings: its own returns must stand in its boxes, the hull's circle is no outline of it
+            // (10-27, the G5 gate's sixth run: the circle hid the cells past the blade from the kit)
+            Assert.IsFalse(spec.upper_swings, "the rig says the dozer swings (export_sensor_rig.py)");
 
             var dozer = Spawn(Start, 0f);
             var blade = dozer.GetComponent<CapBladeDrive>();
@@ -152,7 +158,7 @@ namespace CapKit.Tests
                             posed++;
                             Vector3 u = hub.InverseTransformPoint(hit.point);
                             var ros = new Vector3(u.z, -u.x, u.y);
-                            float outside = OutsideMask(ros, spec.self_mask);
+                            float outside = OutsideMask(ros, spec.self_mask, spec.upper_swings);
                             if (outside > worst)
                             {
                                 worst = outside;
@@ -213,9 +219,9 @@ namespace CapKit.Tests
             // ---- A: it stands without creeping
             Vector3 p0 = hub.position;
             float yaw0 = Yaw(hub);
-            yield return Seconds(20f);
+            yield return Seconds(60f);                // the plan's B1: 60 s (the 10-27 audit: 20 s)
             float creep = Vector3.Distance(new Vector3(p0.x, 0f, p0.z), new Vector3(hub.position.x, 0f, hub.position.z));
-            Log($"A: stood 20 s: crept {creep * 1000f:F1} mm, yaw {YawChange(yaw0, Yaw(hub)):F2} deg, height {hub.position.y:F3}");
+            Log($"A: stood 60 s: crept {creep * 1000f:F1} mm, yaw {YawChange(yaw0, Yaw(hub)):F2} deg, height {hub.position.y:F3}");
             Assert.Less(creep, 0.001f, "creeps while standing");
 
             // ---- B: 15 m straight at 0.8 m/s
@@ -606,11 +612,13 @@ namespace CapKit.Tests
             return v.normalized;
         }
 
-        /// <summary>The cutting edge's heights [m, world] while its middle was within [s0, s1] along a lane.</summary>
+        /// <summary>The cutting edge's heights [m, world] while its middle was within [s0, s1] along a lane - over the
+        /// stretch, and where along it (EdgeAt: the edge that passed over a vertex).</summary>
         private sealed class EdgeWatch
         {
             public float Low = float.PositiveInfinity, High = float.NegativeInfinity;
             public int Steps;
+            private readonly List<(float s, float y)> profile = new List<(float, float)>();
             private readonly CapDozerBlade blade;
             private readonly Vector3 origin, ahead;
             private readonly float s0, s1;
@@ -631,7 +639,22 @@ namespace CapKit.Tests
                 if (s < s0 || s > s1) return;
                 Low = Mathf.Min(Low, Mathf.Min(a.y, b.y));
                 High = Mathf.Max(High, Mathf.Max(a.y, b.y));
+                profile.Add((s, Mathf.Max(a.y, b.y)));
                 Steps++;
+            }
+
+            /// <summary>The edge's highest end where its middle passed within `near` of s along the lane (+inf where it
+            /// did not pass). The blade's band works a vertex while the edge is within 0.6 texel of it along the push
+            /// (CapBlade.compute: cut down to the edge, filled up toward it), so a vertex ends at the edge of the last step
+            /// the band held it: near is that band (0.117 m) and a step's travel (0.014 m at 0.7 m/s), rounded up.</summary>
+            public float EdgeAt(float s, float near = 0.15f)
+            {
+                float best = float.NegativeInfinity;
+                foreach (var (ps, py) in profile)
+                {
+                    if (Mathf.Abs(ps - s) <= near) best = Mathf.Max(best, py);
+                }
+                return best == float.NegativeInfinity ? float.PositiveInfinity : best;
             }
         }
 
@@ -785,7 +808,8 @@ namespace CapKit.Tests
             Assert.AreEqual(33.0, laid, 0.001);
             Assert.AreEqual(33.0, v1 - v0, 1e-3, "the terrain did not gain what the piles laid (to 1e-3 m3)");
 
-            // ---- I: the blade at the ground pushes a 1.5 m3 pile 12 m: soil kept, the pile gone from its place
+            // ---- I: the blade at the ground pushes a 2 m3 pile 12 m (the plan's B5 1): soil kept, the pile gone from its
+            // place, each vertex it passed over under its edge
             var dozer = Spawn(LaneA, 0f);
             var drive = dozer.GetComponent<CapTrackKinematic>();
             var bladeDrive = dozer.GetComponent<CapBladeDrive>();
@@ -802,28 +826,36 @@ namespace CapKit.Tests
             pile.y = 0f;
             Vector3 middle = hub.position + ahead * 9f;
             double before = soil.WorkingVolume(middle, 14f) + blade.LoadM3;
-            CapSoilStamp.Cone(soil, pile, 1.5, 34f);
+            CapSoilStamp.Cone(soil, pile, 2.0, 34f);
             bladeDrive.SetTarget("lift_joint", EdgeAtGround);
             yield return Seconds(1.5f);
             double withPile = soil.WorkingVolume(middle, 14f) + blade.LoadM3;
             float edgeY = Mathf.Min(blade.edgeLeft.position.y, blade.edgeRight.position.y);   // just above the ground
-            var overPile = new EdgeWatch(blade, origin, ahead, 8f - 1.4f, 8f + 1.4f);
+            var overPile = new EdgeWatch(blade, origin, ahead, 8f - 1.6f, 8f + 1.6f);   // the pile's foot: 1.42 m
             yield return DriveHolding(drive, hub, bladeDrive, blade, edgeY, 12f, 0.7f, overPile.Step);
             yield return Seconds(2.5f);                              // stops; the load laid before the blade
             double after = soil.WorkingVolume(middle, 14f) + blade.LoadM3;
             float pileTop = soil.GetComponent<Terrain>().SampleHeight(pile) + soil.transform.position.y;
-            // where the pile stood (inside its foot, 1.29 m): every vertex cut down to the edge that passed over it
-            var (_, swept) = LaneRange(soil, origin, ahead, side, 8f - 1.0f, 8f + 1.0f, -1.0f, 1.0f);
-            Log($"I: pile 1.5 m3 (+{withPile - before:F4}), pushed: cut {blade.CutM3:F3} filled {blade.FilledM3:F3} " +
+            // where the pile stood (inside its foot, 1.42 m): each vertex cut down to the edge that passed over it -
+            // vertex by vertex, the edge where it passed (10-27 audit: the highest vertex against the edge's highest)
+            float swept = float.NegativeInfinity, sweptAt = 0f;
+            foreach (var (vtx, _) in LaneVertices(soil, origin, ahead, side, 8f - 1.0f, 8f + 1.0f, -1.0f, 1.0f))
+            {
+                float along = Vector3.Dot(vtx - origin, ahead);
+                float over = vtx.y - overPile.EdgeAt(along);
+                if (over > swept) { swept = over; sweptAt = along; }
+            }
+            Log($"I: pile 2 m3 (+{withPile - before:F4}), pushed: cut {blade.CutM3:F3} filled {blade.FilledM3:F3} " +
                 $"spilled {blade.SpilledM3:F3} laid {blade.RestM3:F3} load {blade.LoadM3:F3} m3; soil {withPile:F4} -> " +
-                $"{after:F4} m3; where the pile stood the ground is at {pileTop:F3} m, its highest vertex {swept:F4} " +
-                $"m under an edge at {overPile.Low:F4}..{overPile.High:F4} m");
-            Assert.AreEqual(1.5, withPile - before, 1e-3, "the pile's volume");
+                $"{after:F4} m3; where the pile stood the ground is at {pileTop:F3} m, its worst vertex {swept:F4} " +
+                $"m against the edge that passed over it (at {sweptAt:F2} m), the edge {overPile.Low:F4}.." +
+                $"{overPile.High:F4} m");
+            Assert.AreEqual(2.0, withPile - before, 1e-3, "the pile's volume");
             Assert.AreEqual(withPile, after, 1e-3, "soil appeared or vanished under the blade (to 1e-3 m3)");
             Assert.Greater(overPile.Steps, 20, "the edge never passed over the pile");
-            Assert.LessOrEqual(swept, overPile.High + 0.001f, "a vertex the edge passed over stands above it");
+            Assert.LessOrEqual(swept, 0.001f, $"a vertex the edge passed over stands {swept * 1000f:F1} mm above it");
             // The edge held at its height above the scene's ground: what stood above it was cut, what lay below it stays
-            // (live 10-24 with a fixed lift: 1.131 of 1.5 m3 cut, all of it filled into the lane's hollows ahead)
+            // (live 10-24 with a fixed lift and a 1.5 m3 pile: 1.131 m3 cut, all of it filled into the lane's hollows)
             Assert.Greater(blade.CutM3, 0.9, "the blade cut too little of the pile");
             Assert.AreEqual(blade.CutM3, blade.FilledM3 + blade.SpilledM3 + blade.RestM3 + blade.LoadM3, 1e-4,
                 "the blade's ledger: what it cut went into the ground, off its ends, before it or onto it");

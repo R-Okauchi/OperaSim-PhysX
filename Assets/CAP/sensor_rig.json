@@ -98,6 +98,7 @@
         }
       },
       "swing_free": true,
+      "upper_swings": true,
       "mechanical": {
         "mast_height_m": 0.3,
         "bracket_family": "cabroof_rail_clamp"
@@ -566,6 +567,7 @@
         }
       },
       "swing_free": true,
+      "upper_swings": true,
       "mechanical": {
         "mast_height_m": 0.35,
         "bracket_family": "cabroof_rail_clamp"
@@ -1040,6 +1042,7 @@
         }
       },
       "swing_free": true,
+      "upper_swings": true,
       "mechanical": {
         "mast_height_m": 0.3,
         "bracket_family": "cabroof_rail_clamp"
@@ -1514,6 +1517,7 @@
         }
       },
       "swing_free": false,
+      "upper_swings": true,
       "mechanical": {
         "mast_height_m": 0.3,
         "bracket_family": "frame_clamp"
@@ -1971,6 +1975,7 @@
         }
       },
       "swing_free": false,
+      "upper_swings": true,
       "mechanical": {
         "mast_height_m": 0.25,
         "bracket_family": "rops_clamp"
@@ -2428,6 +2433,7 @@
         }
       },
       "swing_free": false,
+      "upper_swings": false,
       "mechanical": {
         "mast_height_m": 0.15,
         "bracket_family": "cabroof_rail_clamp"
@@ -2452,7 +2458,18 @@
           "z_min_m": -0.1,
           "z_max_m": 1.2
         },
-        "extra_boxes": [],
+        "extra_boxes": [
+          {
+            "center_xy_m": [
+              0.525,
+              0.0
+            ],
+            "length_m": 4.65,
+            "width_m": 3.36,
+            "z_min_m": 1.2,
+            "z_max_m": 3.2
+          }
+        ],
         "arm_band": null,
         "dump_shadow_sector_deg": null
       },
