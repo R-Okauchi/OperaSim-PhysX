@@ -48,6 +48,9 @@ public class CapCycleRecorder : MonoBehaviour
         public float[] pos;
         public float[] target;
         public float fov_deg = 50f;
+        public string follow;             // a machine's root: the camera rides with its base_link (pos and target unused)
+        public float[] offset;            // ... at (behind, left, up) [m] in the machine's heading (yaw only)
+        public float look_up_m = 1.0f;    // ... looking at its base_link this far up
     }
 
     [Serializable]
@@ -83,6 +86,7 @@ public class CapCycleRecorder : MonoBehaviour
         public string screen_cameras;     // off: 画面に描くだけのカメラ (targetTexture の無いもの) を切る (頭無しの実行)
         public int frame_rate;            // >0: Application.targetFrameRate (頭無しの描かない実行は 600 fps 近くまで回る)
         public CapScenarioOps.Config scenario;   // a scenario's machines, ground, piles, trucks, people, faults (CapScenarioOps)
+        public CapReplay.Config replay;   // a run played back for its video (CapReplay): its pack, speed, span, machine
         public DemGrid dem_grid;          // the survey on /terrain/dem_grid (CapTerrainDEMPublisher): its region and period
     }
 
@@ -108,6 +112,8 @@ public class CapCycleRecorder : MonoBehaviour
         public string name;
         public Camera cam;
         public RenderTexture rt;
+        public ViewConfig cfg;
+        public Transform follow;          // the followed machine's base_link (found on the first capture)
     }
 
     private struct Job
@@ -227,6 +233,18 @@ public class CapCycleRecorder : MonoBehaviour
                 dem.x1 = cfg.dem_grid.x1;
                 dem.y1 = cfg.dem_grid.y1;
                 dem.periodS = cfg.dem_grid.period_s;
+            });
+        }
+        if (cfg.replay != null && !string.IsNullOrEmpty(cfg.replay.pack))
+        {
+            Stage("replay", () =>
+            {
+                var play = new GameObject(nameof(CapReplay));
+                DontDestroyOnLoad(play);
+                var replay = play.AddComponent<CapReplay>();
+                replay.config = cfg.replay;
+                if (string.IsNullOrEmpty(replay.config.control))
+                    replay.config.control = Path.Combine(cfg.out_dir, "control.json");
             });
         }
         var go = new GameObject(nameof(CapCycleRecorder));
@@ -473,15 +491,23 @@ public class CapCycleRecorder : MonoBehaviour
             cam.targetTexture = rt;
             cam.aspect = _config.width / (float)_config.height;
             cam.fieldOfView = vc.fov_deg;     // 垂直 FOV (fusion_viz も)
-            Vector3 pos = new Vector3(-vc.pos[1], vc.pos[2], vc.pos[0]);
-            Vector3 target = new Vector3(-vc.target[1], vc.target[2], vc.target[0]);
+            // a following view's place is set each capture (Follow): here only a start
+            float[] ap = vc.pos != null && vc.pos.Length == 3 ? vc.pos : new[] { 0f, 0f, 10f };
+            float[] at = vc.target != null && vc.target.Length == 3 ? vc.target : new[] { 1f, 0f, 0f };
+            Vector3 pos = new Vector3(-ap[1], ap[2], ap[0]);
+            Vector3 target = new Vector3(-at[1], at[2], at[0]);
             Vector3 forward = target - pos;
             go.transform.position = pos;
             go.transform.rotation = Quaternion.LookRotation(forward, Vector3.up);
             float dist = forward.magnitude;
             cam.nearClipPlane = Mathf.Max(0.1f, dist * 0.01f);
             cam.farClipPlane = Mathf.Max(1000.0f, dist * 4.0f);
-            _views.Add(new View { name = vc.name, cam = cam, rt = rt });
+            if (!string.IsNullOrEmpty(vc.follow))
+            {
+                cam.nearClipPlane = 0.1f;
+                cam.farClipPlane = 1000f;
+            }
+            _views.Add(new View { name = vc.name, cam = cam, rt = rt, cfg = vc });
         }
         Directory.CreateDirectory(_config.out_dir);
         Debug.Log($"[{nameof(CapCycleRecorder)}] {_views.Count} views at {_config.width}x{_config.height} {_config.fps} fps, " +
@@ -629,8 +655,32 @@ public class CapCycleRecorder : MonoBehaviour
         }
         foreach (var v in _views)
         {
+            if (!string.IsNullOrEmpty(v.cfg?.follow)) Follow(v);
             Capture(v, Path.Combine(_sessionDir, v.name, frame.ToString("D6") + ".jpg"));
         }
+    }
+
+    /// <summary>A following view: behind, left, up of the machine's base_link in its heading (its yaw only: the camera
+    /// does not roll and pitch with the tracks), looking at it.</summary>
+    private static void Follow(View v)
+    {
+        if (v.follow == null)
+        {
+            var root = GameObject.Find(v.cfg.follow);
+            if (root == null) return;
+            foreach (var t in root.GetComponentsInChildren<Transform>(true))
+                if (t.name == "base_link") v.follow = t;
+            if (v.follow == null) v.follow = root.transform;
+        }
+        var o = v.cfg.offset != null && v.cfg.offset.Length == 3 ? v.cfg.offset : new[] { 12f, 6f, 7f };
+        Vector3 fwd = v.follow.forward;
+        fwd.y = 0f;
+        fwd = fwd.sqrMagnitude > 1e-6f ? fwd.normalized : Vector3.forward;
+        // ROS left (+y) is Unity's -x of the heading's right
+        Vector3 right = Vector3.Cross(Vector3.up, fwd);
+        Vector3 at = v.follow.position + Vector3.up * v.cfg.look_up_m;
+        Vector3 pos = v.follow.position - fwd * o[0] - right * o[1] + Vector3.up * o[2];
+        v.cam.transform.SetPositionAndRotation(pos, Quaternion.LookRotation(at - pos, Vector3.up));
     }
 
     private void Capture(View v, string path)
