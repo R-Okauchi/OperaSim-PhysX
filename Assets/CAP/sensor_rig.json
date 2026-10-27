@@ -2444,11 +2444,11 @@
         },
         "undercarriage": {
           "center_xy_m": [
-            0.5,
+            0.525,
             0.0
           ],
-          "length_m": 4.6,
-          "width_m": 3.34,
+          "length_m": 4.65,
+          "width_m": 3.36,
           "z_min_m": -0.1,
           "z_max_m": 1.2
         },
