@@ -285,6 +285,28 @@ namespace CapKit.Tests
             Assert.Less(bucket.LoadM3, 0.005f, "the bucket not emptied");
             Assert.AreEqual(0f, d2 - d0, 0.05f * dug + 0.005f, "the soil not back in the ground");
             Assert.AreEqual(0f, bucket.LostM3, 1e-6f, "soil nowhere");
+            // ---- C2: the load skill's dig as CAP's load makes it (its IK's poses for 7.25 m out, 0.3 m down, at its pace)
+            // into a heap - what it fills (2026-11-01, the chain: 0.05-0.09 m3 a scoop on the mound)
+            Vector3 heapAt = center + radialNow * 7.25f;
+            for (int k = 0; k < 15; k++)
+                soil.Deposit(heapAt, 0.3f, 0.8f);
+            yield return Steps(3);
+            Log($"C2: a heap of 4.5 m3 at 7.25 m, its top {GroundAt(heapAt) - GroundAt(center + radialNow * 3f):F2} m over the ground");
+            float dugC2 = bucket.DugM3;
+            int contactsC2 = bucket.Contacts, behindC2 = bucket.Behind, noRoomC2 = bucket.NoRoom;
+            var skill = new[] { (new[] { -0.562f, 1.691f, 0.0f }, "approach", 3.0f), (new[] { -0.384f, 1.473f, 0.4f }, "penetrate", 2.0f),
+                                (new[] { -0.173f, 1.213f, 2.0f }, "curl", 2.5f), (new[] { -0.825f, 1.675f, 2.0f }, "lift", 3.0f) };
+            foreach (var (pose, name, wait) in skill)
+            {
+                Pose(joints, pose);
+                yield return new WaitForSeconds(wait);
+                Log($"C2: {name}: the tip {tip.position.y - GroundAt(tip.position):F2} m over the ground under it, the mouth " +
+                    $"{MouthDeg(bucket):F0} deg, holds {bucket.LoadM3:F3}; contacts {bucket.Contacts - contactsC2} (behind " +
+                    $"{bucket.Behind - behindC2}, no room {bucket.NoRoom - noRoomC2})");
+            }
+            Log($"C2: the load's dig took {bucket.DugM3 - dugC2:F3} m3 (holds {bucket.LoadM3:F3})");
+            Assert.Greater(bucket.DugM3 - dugC2, 0.5f, "the load's dig did not fill its bucket");
+
             Log($"done: dug {bucket.DugM3:F3}, to beds {bucket.ToBedsM3:F3}, to the ground {bucket.ToGroundM3:F3}; the bed received " +
                 $"{bed.ReceivedM3:F3}, flowed out {bed.ToGroundM3:F3}");
         }
