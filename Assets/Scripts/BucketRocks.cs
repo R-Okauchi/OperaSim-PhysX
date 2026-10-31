@@ -29,6 +29,16 @@ public class BucketRocks : MonoBehaviour
     [Tooltip("地面を離れてこの時間 [s] は、切った土を周りの土が押さえている (口の向きでこぼれ始めるまで)")]
     public float soilHoldS = 0.3f;
 
+    [Tooltip("刃先の幅 [m]: 口が地面の下を口の向きに進むと、幅 × 地面からの深さ (cutDepthM まで) × 進んだ距離を切り取る")]
+    public float lipWidthM = 1.2f;
+
+    [Tooltip("刃先が切る深さの上限 [m] (口の開きの高さ)")]
+    public float cutDepthM = 0.6f;
+
+    [Tooltip("切るのは刃先が地面のこれ [m] より下で、口の向きに 1 秒あたりこれ [m/s] より速く進む間だけ (止まった腕の揺れは切らない)")]
+    public float cutBelowM = 0.02f;
+    public float cutSpeedMps = 0.1f;
+
     [Tooltip("地面に落ちた土を広げる幅 (正規分布の σ) [m]")]
     public float spreadM = 0.35f;
 
@@ -59,6 +69,10 @@ public class BucketRocks : MonoBehaviour
     private float capacity;
     private double lastDig = double.NegativeInfinity;
     private double lastContact = double.NegativeInfinity;      // the terrain's last touch (dug or not)
+    private Vector3 lastLip;                                       // the mouth's opening at the last step (the cut's)
+    private bool hasLip;
+    private int sessionContacts, sessionBehind;
+    private float sessionCut;
     private readonly ContactPoint[] contacts = new ContactPoint[16];
     private RaycastHit[] hits = new RaycastHit[128];             // the excavator's own boxes come first (some 50): grown
     private readonly Dictionary<string, float> session = new Dictionary<string, float>();
@@ -127,6 +141,7 @@ public class BucketRocks : MonoBehaviour
         if (now - lastDig <= 0.01)
             return;
         Contacts++;
+        sessionContacts++;
         float room = capacity - LoadM3;                         // in the ground: whatever the mouth's angle
         if (room <= 1e-6f)
         {
@@ -151,6 +166,56 @@ public class BucketRocks : MonoBehaviour
             return;
         }
         Behind++;
+        sessionBehind++;
+    }
+
+    /// <summary>The soil the mouth's opening cuts as it goes into the ground: below the terrain, moving along the mouth's
+    /// direction, it takes its lip's width x its depth there (to cutDepthM) x the way it went (to the capacity), dug out
+    /// across the lip. A cut and not a touch: a bucket stabbed in and curled at a load's pace touched the ground a few
+    /// steps and took 0.05-0.2 m3 (2026-11-01, the chain); one dragged slowly filled at a press.</summary>
+    private void Cut(double now)
+    {
+        Vector3 m = link.TransformDirection(mouth.direction);
+        Vector3 lip = SpillPoint();
+        float ground = GroundAt(lip);
+        if (hasLip && !float.IsNaN(ground))
+        {
+            float below = ground - lip.y, along = Vector3.Dot(lip - lastLip, m);
+            if (below > cutBelowM && along > cutSpeedMps * Time.fixedDeltaTime)
+            {
+                lastContact = now;
+                float want = Mathf.Min(capacity - LoadM3, lipWidthM * Mathf.Min(below, cutDepthM) * along);
+                Vector3 across = Vector3.Cross(Vector3.up, Vector3.ProjectOnPlane(m, Vector3.up)).normalized;
+                if (across.sqrMagnitude < 0.5f)
+                    across = link.TransformDirection(Vector3.right);
+                for (int k = 0; want > 1e-6f && k < 64; k++)
+                {
+                    Vector3 at = lip + across * (lipWidthM * (((k * 0.618034f) % 1f) - 0.5f));
+                    float took = soil.DigUnit(at, Mathf.Min(want, soil.DigUnitM3));
+                    if (took <= 0f)
+                        break;
+                    LoadM3 += took;
+                    DugM3 += took;
+                    sessionDug += took;
+                    sessionCut += took;
+                    want -= took;
+                    lastDig = now;
+                }
+            }
+        }
+        lastLip = lip;
+        hasLip = true;
+    }
+
+    private static float GroundAt(Vector3 p)
+    {
+        foreach (var t in Terrain.activeTerrains)
+        {
+            Vector3 o = t.transform.position, size = t.terrainData.size;
+            if (p.x >= o.x && p.x <= o.x + size.x && p.z >= o.z && p.z <= o.z + size.z)
+                return t.SampleHeight(p) + o.y;
+        }
+        return float.NaN;
     }
 
     private void FixedUpdate()
@@ -158,6 +223,8 @@ public class BucketRocks : MonoBehaviour
         if (soil == null || soil.particles)
             return;
         double now = Time.timeAsDouble;
+        if (soil.enable)
+            Cut(now);
         if (LoadM3 > 0f && now - lastContact > soilHoldS)          // out of the ground: the mouth's angle holds it
         {
             float excess = LoadM3 - Holds();
@@ -178,8 +245,10 @@ public class BucketRocks : MonoBehaviour
         }
         if (sessionDug > 0f && now - lastDig > 1.0)
         {
-            Debug.Log($"[CapSoil] {machine.name} bucket dug {sessionDug:F3} m3; holds {LoadM3:F3} of {capacity:F2} m3");
-            sessionDug = 0f;
+            Debug.Log($"[CapSoil] {machine.name} bucket dug {sessionDug:F3} m3 ({sessionCut:F3} cut, {sessionContacts} touches, " +
+                      $"{sessionBehind} behind); holds {LoadM3:F3} of {capacity:F2} m3");
+            sessionDug = sessionCut = 0f;
+            sessionContacts = sessionBehind = 0;
         }
     }
 
