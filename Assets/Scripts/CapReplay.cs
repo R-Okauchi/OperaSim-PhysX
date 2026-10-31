@@ -7,8 +7,9 @@ using UnityEngine;
 /// <summary>
 /// A run played back for its video (CAP's scripts/replay_video.py writes the pack, CapCycleRecorder's views capture
 /// it): the region's terrain frames, a machine's pose and joints, and the people's walks, each at its time on the run's
-/// Unity clock, at `speed` times its pace - with physics off and the machine's own drives, blade and sensors still. The
-/// run itself is not touched: its numbers are the cluster's; this is only what it looked like.
+/// Unity clock, at `speed` times its pace (on the game's clock: the recorder's frame_locked advances it 1/fps a frame,
+/// so a slow renderer - the cluster's CPU - drops no frame) - with physics off and the machine's own drives, blade and
+/// sensors still. The run itself is not touched: its numbers are the cluster's; this is only what it looked like.
 ///
 /// The recorder's config: "replay": {"pack": ".../replay.json", "speed": 20, "t0": 0, "t1": 5400, "machine": "d37pxi",
 ///   "quit": true}. The pack:
@@ -81,7 +82,7 @@ public class CapReplay : MonoBehaviour
     private Transform hub;
     private int nextFrame;
     private int poseAt;
-    private float startReal;
+    private float startGame;               // the game's clock (Time.time) at the start: frame-locked, 1/fps a frame
     private float t;
     private bool ended;
     private float endedAt;
@@ -104,7 +105,7 @@ public class CapReplay : MonoBehaviour
             people.Add((w, body.transform));
         }
         t = config.t0;
-        startReal = Time.realtimeSinceStartup;
+        startGame = Time.time;
         Apply(t);
         Debug.Log($"[{nameof(CapReplay)}] {poses.Count} poses, {pack.frames?.Length ?? 0} frames, {people.Count} people: " +
                   $"t {config.t0:F0}..{config.t1:F0} at x{config.speed:F0}");
@@ -117,7 +118,8 @@ public class CapReplay : MonoBehaviour
             if (config.quit && Time.realtimeSinceStartup - endedAt > 3f) Application.Quit();
             return;
         }
-        t = config.t0 + (Time.realtimeSinceStartup - startReal) * config.speed;
+        t = config.t0 + (Time.time - startGame) * config.speed;   // the game's clock: under the recorder's frame_locked
+                                                                  // each frame moves the run on by speed / fps
         Apply(t);
         if (t >= config.t1)
         {

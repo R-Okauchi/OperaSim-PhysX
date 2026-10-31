@@ -34,6 +34,8 @@ using Unity.Robotics.ROSTCPConnector;
 /// 速さ (任意): "pace_log_s": 10 → 10 s ごとに "[CapPace] sim +X s in Y s wall (factor F) ..." (CapPaceLog)。
 /// 画面 (任意): "screen_cameras": "off" → 画面に描くだけのカメラを切る (センサと録画のカメラはそのまま)、
 ///   "frame_rate": 60 → フレームの上限 (描かない頭無しの実行は 590 fps まで回って CPU を食う。物理は 50 Hz のまま)。
+/// こまで進める (任意): "frame_locked": true → Time.captureFramerate = fps。毎フレームを撮り、模擬の時計は 1 フレームで
+///   1/fps 進む (描くのが遅くてもこまを落とさない: クラスタの CPU の描画で再生 (CapReplay) を撮る。読み出しが詰まれば待つ)。
 /// 書き出し: out_dir/&lt;session&gt;/&lt;view&gt;/%06d.jpg と out_dir/&lt;session&gt;/frames.csv
 /// (frame, wall_s, unity_time_s, realtime_s: 同じ番号は全カメラで同じ瞬間)、止めたら out_dir/&lt;session&gt;/done.json。
 /// 描画は camera.Render → RenderTexture (Game ビューのフォーカスに依らない)、読み出しは AsyncGPUReadback、
@@ -85,6 +87,7 @@ public class CapCycleRecorder : MonoBehaviour
         public float pace_log_s;          // >0: その秒ごとに模擬の速さを記録 (CapPaceLog)
         public string screen_cameras;     // off: 画面に描くだけのカメラ (targetTexture の無いもの) を切る (頭無しの実行)
         public int frame_rate;            // >0: Application.targetFrameRate (頭無しの描かない実行は 600 fps 近くまで回る)
+        public bool frame_locked;         // true: Time.captureFramerate = fps, every frame captured, none dropped (offline)
         public CapScenarioOps.Config scenario;   // a scenario's machines, ground, piles, trucks, people, faults (CapScenarioOps)
         public CapReplay.Config replay;   // a run played back for its video (CapReplay): its pack, speed, span, machine
         public DemGrid dem_grid;          // the survey on /terrain/dem_grid (CapTerrainDEMPublisher): its region and period
@@ -192,6 +195,11 @@ public class CapCycleRecorder : MonoBehaviour
             QualitySettings.vSyncCount = 0;
             Application.targetFrameRate = cfg.frame_rate;
             Debug.Log($"[{nameof(CapCycleRecorder)}] frame rate {cfg.frame_rate}");
+        }
+        if (cfg.frame_locked)
+        {
+            Time.captureFramerate = Mathf.Max(1, Mathf.RoundToInt(cfg.fps));
+            Debug.Log($"[{nameof(CapCycleRecorder)}] frame-locked: {Time.captureFramerate} frames a second of the game's time");
         }
         if (cfg.pace_log_s > 0f)
         {
@@ -528,7 +536,11 @@ public class CapCycleRecorder : MonoBehaviour
                 PollControl();
                 period = 1.0 / Mathf.Max(1f, _config.fps);
             }
-            if (_session != null && now >= next)
+            if (_session != null && _config.frame_locked)
+            {
+                CaptureTick();                // こまで進める: 毎フレーム (模擬の時計はフレームごとに 1/fps)
+            }
+            else if (_session != null && now >= next)
             {
                 CaptureTick();
                 next += period;
@@ -685,7 +697,15 @@ public class CapCycleRecorder : MonoBehaviour
 
     private void Capture(View v, string path)
     {
-        if (Interlocked.CompareExchange(ref _pending, 0, 0) >= MaxPending)
+        if (_config.frame_locked)
+        {
+            while (Interlocked.CompareExchange(ref _pending, 0, 0) >= MaxPending)
+            {
+                AsyncGPUReadback.WaitAllRequests();   // こまで進める: 落とさず、読み出しと書き込みが空くのを待つ
+                Thread.Sleep(2);
+            }
+        }
+        else if (Interlocked.CompareExchange(ref _pending, 0, 0) >= MaxPending)
         {
             _dropped++;
             return;
