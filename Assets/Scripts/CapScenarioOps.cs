@@ -27,7 +27,7 @@ public class CapScenarioOps : MonoBehaviour
     [Serializable]
     public class Spawn
     {
-        public string prefab;               // Resources/Prefab/<prefab>
+        public string prefab;               // Resources/Prefab/<prefab>, else the scene's machine of that name (cloned)
         public string name;                 // the root's name (its topics' namespace)
         public float x;
         public float y;
@@ -128,17 +128,33 @@ public class CapScenarioOps : MonoBehaviour
             foreach (var s in cfg.spawn)
             {
                 var prefab = Resources.Load<GameObject>("Prefab/" + s.prefab);
-                if (prefab == null)
+                // No such prefab: a machine of the scene by that name, cloned with what the scene gives it (its kit, its
+                // controllers) - a second mst110cr. Cloned asleep and woken under its own name: its topics take the
+                // root's name when they start ([robot_name]), never "<name>(Clone)".
+                var scene = prefab == null ? GameObject.Find(s.prefab) : null;
+                if (prefab == null && scene == null)
                 {
-                    Debug.LogWarning($"[{nameof(CapScenarioOps)}] no Resources/Prefab/{s.prefab}");
+                    Debug.LogWarning($"[{nameof(CapScenarioOps)}] no Resources/Prefab/{s.prefab} and no {s.prefab} in the scene");
                     continue;
                 }
                 var at = new Vector3(-s.y, 0f, s.x);
                 float g = Ground(at);
                 at.y = (float.IsNaN(g) ? 0f : g) + 0.6f;
                 // ROS yaw (counter-clockwise from +x) is Unity's clockwise turn about up from +z (ROS +x)
-                var go = Instantiate(prefab, at, Quaternion.Euler(0f, -s.yaw_deg, 0f));
+                GameObject go;
+                if (prefab != null)
+                {
+                    go = Instantiate(prefab, at, Quaternion.Euler(0f, -s.yaw_deg, 0f));
+                }
+                else
+                {
+                    bool awake = scene.activeSelf;
+                    scene.SetActive(false);
+                    go = Instantiate(scene, at, Quaternion.Euler(0f, -s.yaw_deg, 0f));
+                    scene.SetActive(awake);
+                }
                 go.name = string.IsNullOrEmpty(s.name) ? s.prefab : s.name;
+                go.SetActive(true);
                 Debug.Log($"[{nameof(CapScenarioOps)}] spawned {go.name} at ({s.x:F1}, {s.y:F1}) yaw {s.yaw_deg:F0} deg");
             }
         }
