@@ -255,10 +255,13 @@ namespace CapKit.Tests
             boom += 0.1f;
             var steps = new[] { (new[] { boom, Penetrate[1], Penetrate[2] }, "press"), (new[] { boom, Drag[1], Drag[2] }, "drag"),
                                 (new[] { boom - 0.1f, Curl[1], Curl[2] }, "curl"), (Lift, "lift") };
+            float inGround = 0f;
             foreach (var (pose, name) in steps)
             {
                 Pose(joints, pose);
                 yield return new WaitForSeconds(3.0f);
+                if (name == "curl")
+                    inGround = bucket.LoadM3;
                 Log($"C: {name} (boom {pose[0]:F2}): the tip {tip.position.y - GroundAt(tip.position):F2} m over the ground, the mouth " +
                     $"{MouthDeg(bucket):F0} deg, holds {bucket.LoadM3:F3}; contacts {bucket.Contacts} (behind {bucket.Behind}, no room {bucket.NoRoom})");
             }
@@ -266,7 +269,10 @@ namespace CapKit.Tests
             float dug = bucket.DugM3 - dug0, spilled = bucket.ToGroundM3 - ground0;
             float d1 = Volume(terrain, digAt, 40);
             Log($"C: dug {dug:F3} m3 (holds {bucket.LoadM3:F3}, {spilled:F3} spilled on the lift), the ground {d1 - d0:+0.000;-0.000} m3");
-            Assert.Greater(dug, 0.1f, "the arm dug nothing");
+            // the soil a bucket cuts in the ground is held there whatever its mouth's angle, the mouth's angle spills it
+            // once out (2026-11-01: limited by the mouth's angle in the ground too, a load's scoop took 0.05-0.09 m3)
+            Assert.Greater(dug, 0.6f, "the arm's dig did not fill its bucket");
+            Assert.Greater(inGround, 0.75f, "spilled in the ground");
             Assert.AreEqual(-(dug - spilled), d1 - d0, 0.05f * dug + 0.005f, "the dig's volume");
             Assert.AreEqual(dug - spilled, bucket.LoadM3, 0.006f, "the bucket's account");
 

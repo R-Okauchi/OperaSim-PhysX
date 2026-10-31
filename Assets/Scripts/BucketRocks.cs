@@ -4,9 +4,11 @@ using UnityEngine;
 
 /// <summary>
 /// バケットにアタッチして、地面との接触時に粒子を生成する。
-/// 粒子なし (SoilParticleSettings.particles = false) のときは、掘った量をバケットが持つ: 口が上を向いている間は容量まで、
-/// 口が下を向くにつれて持てる量が減り (上から holdFullDeg で満杯、holdNoneDeg で 0)、余りが口から真下へ落ちる
-/// (荷台なら CapBedLoad へ、地面ならそこを上げる)。口の向きは Start で殻に光線を投げて測る (CapSoilGeometry)。
+/// 粒子なし (SoilParticleSettings.particles = false) のときは、掘った量をバケットが持つ: 地面に触れている間は口の向きに
+/// よらず容量まで掘り (切った土は周りの土が押さえる)、地面を離れて soilHoldS たつと、口が下を向くにつれて持てる量が減り
+/// (上から holdFullDeg で満杯、holdNoneDeg で 0)、余りが口から真下へ落ちる (荷台なら CapBedLoad へ、地面ならそこを上げる)。
+/// 口の向きは Start で殻に光線を投げて測る (CapSoilGeometry)。2026-11-01: 口の向きで掘れる量を土の中でも絞っていたので、口を
+/// 下に向けて差すバケットは何も掘れず地面に押し返され、巻く間に表面をなでるだけ (1 杯 0.05-0.09 m3) だった。
 /// 60°・120° は実機の zx200 の 2026-01-29 の 58 分の作業 (人の運転、130 回の運搬) から: 運ぶ間の口は上から中央値 23°
 /// (p10/p90 7/135)、掘り終わり 21°、放土で開いた所は中央値 121° (p10 79°)。CAP の scripts/bag_tools/zx200_bucket_mouth.py。
 /// </summary>
@@ -23,6 +25,9 @@ public class BucketRocks : MonoBehaviour
 
     [Tooltip("こぼれる速さの上限 [m3/s]")]
     public float pourRateM3s = 1.0f;
+
+    [Tooltip("地面を離れてこの時間 [s] は、切った土を周りの土が押さえている (口の向きでこぼれ始めるまで)")]
+    public float soilHoldS = 0.3f;
 
     [Tooltip("地面に落ちた土を広げる幅 (正規分布の σ) [m]")]
     public float spreadM = 0.35f;
@@ -53,6 +58,7 @@ public class BucketRocks : MonoBehaviour
     private CapSoilGeometry.Mouth mouth;
     private float capacity;
     private double lastDig = double.NegativeInfinity;
+    private double lastContact = double.NegativeInfinity;      // the terrain's last touch (dug or not)
     private readonly ContactPoint[] contacts = new ContactPoint[16];
     private RaycastHit[] hits = new RaycastHit[128];             // the excavator's own boxes come first (some 50): grown
     private readonly Dictionary<string, float> session = new Dictionary<string, float>();
@@ -117,10 +123,11 @@ public class BucketRocks : MonoBehaviour
         if (!soil.enable || other.gameObject.name != soil.terrainObjectName)
             return;
         double now = Time.timeAsDouble;
+        lastContact = now;
         if (now - lastDig <= 0.01)
             return;
         Contacts++;
-        float room = Holds() - LoadM3;
+        float room = capacity - LoadM3;                         // in the ground: whatever the mouth's angle
         if (room <= 1e-6f)
         {
             NoRoom++;
@@ -151,7 +158,7 @@ public class BucketRocks : MonoBehaviour
         if (soil == null || soil.particles)
             return;
         double now = Time.timeAsDouble;
-        if (LoadM3 > 0f)
+        if (LoadM3 > 0f && now - lastContact > soilHoldS)          // out of the ground: the mouth's angle holds it
         {
             float excess = LoadM3 - Holds();
             if (excess > 1e-6f)
