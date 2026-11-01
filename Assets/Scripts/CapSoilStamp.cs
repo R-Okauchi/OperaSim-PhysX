@@ -78,7 +78,7 @@ public static class CapSoilStamp
         int x0 = int.MaxValue, y0 = int.MaxValue, x1 = int.MinValue, y1 = int.MinValue;
         foreach (var p in px) { x0 = Mathf.Min(x0, p.x); y0 = Mathf.Min(y0, p.y); x1 = Mathf.Max(x1, p.x); y1 = Mathf.Max(y1, p.y); }
         soil.Commit(new RectInt(x0, y0, x1 - x0 + 1, y1 - y0 + 1));
-        return got[3] / QuantaPerM3;
+        return (got[2] * 4294967296.0 + got[3]) / QuantaPerM3;       // [2]: [3]'s carries (CapBlade.compute)
     }
 
     /// <summary>A Gaussian heap of volumeM3 centred at a world point (sigma [m], cut at two sigma).</summary>

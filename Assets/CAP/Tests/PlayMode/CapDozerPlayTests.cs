@@ -1113,6 +1113,26 @@ namespace CapKit.Tests
         }
 
         [UnityTest, Timeout(600000)]
+        public IEnumerator APileOfMoreQuantaThanAUintHoldsLandsAndSaysSo()
+        {
+            // A 70 m3 pile is 7e9 quanta, more than a uint holds (42.9 m3): it lands in full and the stamp says what
+            // landed (11-01: CAP's chain's 70 m3 pile landed in full and was reported as 27.05 m3, 7e9 less 2^32)
+            LogAssert.ignoreFailingMessages = true;
+            SceneManager.sceneLoaded += NoParticles;
+            yield return CapTestScene.LoadFresh(Scene);
+            SceneManager.sceneLoaded -= NoParticles;
+            yield return new WaitForSeconds(1.0f);
+            var soil = SoilParticleSettings.instance;
+            Vector3 at = new Vector3(20f, 0f, -38f);
+            double local0 = soil.WorkingVolume(at, 6f);
+            double laid = CapSoilStamp.Cone(soil, at, 70.0, 34f);
+            double local1 = soil.WorkingVolume(at, 6f);
+            Log($"Q: a 70 m3 pile at 34 deg: {laid:F6} m3 said landed, {local1 - local0:F6} m3 more round it");
+            Assert.AreEqual(70.0, laid, 1e-5, "the stamp did not say what landed");
+            Assert.AreEqual(70.0, local1 - local0, 1e-3, "the pile did not land in full");
+        }
+
+        [UnityTest, Timeout(600000)]
         public IEnumerator DozerPushesAPileOnFixedJoints()
         {
             // The whole machine at fixed joint targets - the blade riding the body, the body the

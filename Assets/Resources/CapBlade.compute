@@ -17,7 +17,8 @@
 #pragma kernel StampAdd
 
 RWTexture2D<float> heightmap;
-// [0] cut quanta, [1] demand quanta (measure) / filled quanta (apply), [2] vertices under the edge, [3] stamped quanta
+// [0] cut quanta, [1] demand quanta (measure) / filled quanta (apply), [2] vertices under the edge (the blade's) or the
+// carries out of [3] (StampAdd's), [3] stamped quanta
 RWStructuredBuffer<uint> acc;
 int2 rectMin;
 int2 rectSize;
@@ -101,5 +102,9 @@ void StampAdd(uint3 id : SV_DispatchThreadID)
     float h = heightmap[p];
     float hn = h + stampQuanta[id.x] / qPerTex;
     heightmap[p] = hn;
-    InterlockedAdd(acc[3], Quanta(hn - h));
+    // A uint holds 42.9 m3 of quanta, less than a pile (11-01: a 70 m3 pile reported 27.05 m3 - 7e9 less 2^32 - laid in
+    // full): the addition that wraps [3] round carries one into [2]
+    uint q = Quanta(hn - h), before;
+    InterlockedAdd(acc[3], q, before);
+    if (before + q < before) InterlockedAdd(acc[2], 1u);
 }
