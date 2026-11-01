@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
+using System.Reflection;
 using System.Text;
 using RosMessageTypes.Std;
 using Unity.Robotics.ROSTCPConnector;
@@ -154,6 +155,14 @@ public class CapScenarioOps : MonoBehaviour
                     scene.SetActive(awake);
                 }
                 go.name = string.IsNullOrEmpty(s.name) ? s.prefab : s.name;
+                if (prefab == null && go.name != s.prefab)
+                {
+                    // The source's components resolved [robot_name] to its name when they started and keep it in their
+                    // fields, and a clone copies what they hold: renamed here, before it wakes (11-01, the chain's
+                    // rehearsal 20: mst110cr_2 published on mst110cr's topics, none of its own ever seen).
+                    int renamed = RenameMachine(go, s.prefab, go.name);
+                    Debug.Log($"[{nameof(CapScenarioOps)}] {go.name}: {renamed} names of {s.prefab} in its components made its own");
+                }
                 go.SetActive(true);
                 Debug.Log($"[{nameof(CapScenarioOps)}] spawned {go.name} at ({s.x:F1}, {s.y:F1}) yaw {s.yaw_deg:F0} deg");
             }
@@ -162,6 +171,71 @@ public class CapScenarioOps : MonoBehaviour
         {
             foreach (var op in cfg.terrain) Shape(op);
         }
+    }
+
+    /// <summary>Each string a component under <paramref name="go"/> holds - its fields of any access, its own and its
+    /// bases', strings in arrays and lists too - with every '/'-separated segment equal to <paramref name="from"/> made
+    /// <paramref name="to"/>: the topics, frames and robot names its source resolved when it started. The count of
+    /// strings changed. Arrays and lists are replaced, never changed in place (a clone may share one with its source).</summary>
+    public static int RenameMachine(GameObject go, string from, string to)
+    {
+        int n = 0;
+        const BindingFlags flags = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.DeclaredOnly;
+        foreach (var mb in go.GetComponentsInChildren<MonoBehaviour>(true))
+        {
+            if (mb == null) continue;
+            for (var t = mb.GetType(); t != null && t != typeof(MonoBehaviour) && t != typeof(Behaviour) && t != typeof(Component); t = t.BaseType)
+            {
+                foreach (var f in t.GetFields(flags))
+                {
+                    if (f.IsLiteral || f.IsInitOnly) continue;
+                    if (f.FieldType == typeof(string))
+                    {
+                        var v = (string)f.GetValue(mb);
+                        var r = RenameSegment(v, from, to);
+                        if (!ReferenceEquals(r, v)) { f.SetValue(mb, r); n++; }
+                    }
+                    else if (f.FieldType == typeof(string[]) && f.GetValue(mb) is string[] a)
+                    {
+                        var copy = (string[])a.Clone();
+                        int k = 0;
+                        for (int i = 0; i < copy.Length; i++)
+                        {
+                            var r = RenameSegment(copy[i], from, to);
+                            if (!ReferenceEquals(r, copy[i])) { copy[i] = r; k++; }
+                        }
+                        if (k > 0) { f.SetValue(mb, copy); n += k; }
+                    }
+                    else if (f.FieldType == typeof(List<string>) && f.GetValue(mb) is List<string> l)
+                    {
+                        var copy = new List<string>(l);
+                        int k = 0;
+                        for (int i = 0; i < copy.Count; i++)
+                        {
+                            var r = RenameSegment(copy[i], from, to);
+                            if (!ReferenceEquals(r, copy[i])) { copy[i] = r; k++; }
+                        }
+                        if (k > 0) { f.SetValue(mb, copy); n += k; }
+                    }
+                }
+            }
+        }
+        return n;
+    }
+
+    /// <summary><paramref name="v"/> with each '/'-separated segment equal to <paramref name="from"/> made
+    /// <paramref name="to"/> ("mst110cr/global_pose", "/mst110cr/kit/imu", "mst110cr"); the same string when it has
+    /// none - a name that only begins with it ("mst110cr_2", "mst110cr-body") is not it.</summary>
+    public static string RenameSegment(string v, string from, string to)
+    {
+        if (string.IsNullOrEmpty(v) || string.IsNullOrEmpty(from) || v.IndexOf(from, StringComparison.Ordinal) < 0) return v;
+        var parts = v.Split('/');
+        bool changed = false;
+        for (int i = 0; i < parts.Length; i++)
+        {
+            if (parts[i] == from) { parts[i] = to; changed = true; }
+        }
+        return changed ? string.Join("/", parts) : v;
     }
 
     private static float Ground(Vector3 at)
