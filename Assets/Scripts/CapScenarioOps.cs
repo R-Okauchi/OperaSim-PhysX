@@ -12,8 +12,9 @@ using UnityEngine;
 /// <summary>
 /// A scenario's set-up and its live operations, from CapCycleRecorder's config ("scenario"), so one scene serves many
 /// scenarios (CAP's scenario runner writes the config; coordinates are ROS/map [m], as the machines' poses):
-/// - before the soil starts (AfterSceneLoad): machines spawned from Resources/Prefab (the D37PXi) or switched off,
-///   the ground shaped (flatten a rectangle to a height with a little roughness);
+/// - before the soil starts (AfterSceneLoad): the ground shaped first (flatten a rectangle to a height with a little
+///   roughness: ShapeTerrain, before the scene's machines are placed), then machines spawned from Resources/Prefab (the
+///   D37PXi) or cloned from the scene's, or switched off (Prepare);
 /// - once the soil runs: piles laid as cones (exact volumes, CapSoilStamp), a dump truck's stand-in that lays the piles
 ///   a Site asks for on /scenario/dump_request after a delay (and says so on /scenario/dump_done; as a driver would,
 ///   not onto a machine: while one stands within the pile's foot and clearM of the spot the truck waits, up to
@@ -167,10 +168,16 @@ public class CapScenarioOps : MonoBehaviour
                 Debug.Log($"[{nameof(CapScenarioOps)}] spawned {go.name} at ({s.x:F1}, {s.y:F1}) yaw {s.yaw_deg:F0} deg");
             }
         }
-        if (cfg.terrain != null)
-        {
-            foreach (var op in cfg.terrain) Shape(op);
-        }
+    }
+
+    /// <summary>The scenario's ground shaped (its terrain ops, in order): before the scene's machines are placed and
+    /// the spawned ones made, so that each stands on the ground it is given - a bench a loader stands on raised under
+    /// it, not into it (11-01: the five machines' chain puts zx120 and its mound on a bench 1.5 m up; shaped after the
+    /// placements, the ground would have risen through its tracks).</summary>
+    public static void ShapeTerrain(Config cfg)
+    {
+        if (cfg?.terrain == null) return;
+        foreach (var op in cfg.terrain) Shape(op);
     }
 
     /// <summary>Each string a component under <paramref name="go"/> holds - its fields of any access, its own and its

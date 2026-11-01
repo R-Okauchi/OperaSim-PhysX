@@ -176,9 +176,12 @@ public class CapCycleRecorder : MonoBehaviour
         // 1 つが投げても他は効く (a846 #9: 置き直しが投げると粒子のまま走り、地形の書き出しが投げると残りが黙って飛んだ)。
         // 土の粒子が先頭: どの道を走るかを決める
         Stage("soil particles", () => SoilParticles(cfg.soil_particles));
+        // the scenario's ground before its machines are placed on it (a bench under a loader: 11-01), and before the
+        // soil starts (its working heightmap is built from these heights); the ground's dump below is then the ground
+        // before any pile
+        Stage("terrain", () => CapScenarioOps.ShapeTerrain(cfg.scenario));
         Stage("placements", () => PlaceMachines(cfg.placements));
-        // a scenario's machines and ground before the soil starts (its working heightmap is built from these heights);
-        // the ground's dump below is then the ground before any pile
+        // a scenario's machines (spawned, cloned, switched off) on that ground
         Stage("scenario", () => CapScenarioOps.Prepare(cfg.scenario));
         Stage("ROS endpoint", () => PointRos(cfg.ros_ip, cfg.ros_port));
         Stage("terrain dump", () => DumpTerrain(cfg.terrain_dump));
