@@ -206,7 +206,9 @@ public static class CapSoilGeometry
     {
         while (true)
         {
-            int n = Physics.RaycastNonAlloc(from, Vector3.down, buffer, distance, Physics.DefaultRaycastLayers, triggers);
+            // every layer: a machine's body box is on Ignore Raycast, out of the sensors' rays, and the soil meets it as
+            // it did (CapBodyBoxes)
+            int n = Physics.RaycastNonAlloc(from, Vector3.down, buffer, distance, Physics.AllLayers, triggers);
             if (n < buffer.Length)
                 return n;
             if (buffer.Length >= 8192)

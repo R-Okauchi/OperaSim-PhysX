@@ -190,6 +190,9 @@ public class CapCycleRecorder : MonoBehaviour
         Stage("placements", () => PlaceMachines(cfg.placements));
         // a scenario's machines (spawned, cloned, switched off) on that ground
         Stage("scenario", () => CapScenarioOps.Prepare(cfg.scenario));
+        // every machine's body box, the scenario's clones' too, out of the sensors' rays (CapBodyBoxes)
+        Stage("body boxes", () => Debug.Log($"[{nameof(CapCycleRecorder)}] body boxes hidden from rays: " +
+                                            string.Join(", ", CapBodyBoxes.HideAll())));
         Stage("ROS endpoint", () => PointRos(cfg.ros_ip, cfg.ros_port));
         Stage("terrain dump", () => DumpTerrain(cfg.terrain_dump));
         if (cfg.visualizers == "off")
