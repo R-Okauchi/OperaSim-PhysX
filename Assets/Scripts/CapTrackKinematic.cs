@@ -95,6 +95,9 @@ public class CapTrackKinematic : MonoBehaviour
 
     private string twistTopic;
 
+    /// <summary>The cmd_vel topic it drives on, as Start resolves it (a clone's: its own name's).</summary>
+    public string TwistTopic => Utils.PreprocessNamespace(gameObject, twistTopic ?? "");
+
     void Start()
     {
         terrain = SoilParticleSettings.instance != null ? SoilParticleSettings.instance.GetComponent<Terrain>()

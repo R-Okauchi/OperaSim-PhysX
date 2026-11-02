@@ -138,6 +138,74 @@ namespace CapKit.Tests
             Assert.Less(arm_off, 1.0f, "the arm was left behind");
             Object.Destroy(go);
         }
+
+        /// <summary>As the recorder does a run's (its placements, then its scenario's spawns), when the scene loads: the
+        /// scene's mst110cr on kinematic tracks, then its clone mst110cr_2 spawned 0.6 m up.</summary>
+        private static void CarrierAndCloneOnLoad(Scene scene, LoadSceneMode mode)
+        {
+            if (SoilParticleSettings.instance != null) SoilParticleSettings.instance.particles = false;
+            var carrier = GameObject.Find("mst110cr");
+            if (carrier == null) return;
+            CapTrackKinematic.Fit(carrier, 0f, 0f, 0f);
+            CapScenarioOps.Prepare(new CapScenarioOps.Config
+            {
+                spawn = new[] { new CapScenarioOps.Spawn { prefab = "mst110cr", name = "mst110cr_2", x = 10f, y = -35f,
+                                                           yaw_deg = 0f } }
+            });
+        }
+
+        [UnityTest, Timeout(600000)]
+        public IEnumerator ACloneOfACarrierOnKinematicTracksDrivesOnItsOwn()
+        {
+            // r29 (11-02): mst110cr_2 turning at its slot by the bench's ramp was turned the other way by the slope its
+            // wheels stood half on; the carriers on the tracks zx120 climbs on - the clone with them
+            LogAssert.ignoreFailingMessages = true;
+            SceneManager.sceneLoaded += CarrierAndCloneOnLoad;
+            try
+            {
+                yield return CapTestScene.LoadFresh(Scene);
+            }
+            finally
+            {
+                SceneManager.sceneLoaded -= CarrierAndCloneOnLoad;
+            }
+            yield return Seconds(2f);
+            var terrain = Terrain.activeTerrain;
+            float H(Vector3 p) => terrain.SampleHeight(p) + terrain.transform.position.y;
+            var source = GameObject.Find("mst110cr");
+            var clone = GameObject.Find("mst110cr_2");
+            Assert.IsNotNull(source, "no mst110cr in the scene");
+            Assert.IsNotNull(clone, "no mst110cr_2 spawned");
+            var a = source.GetComponent<CapTrackKinematic>();
+            var b = clone.GetComponent<CapTrackKinematic>();
+            Assert.IsNotNull(a, "the carrier is not on kinematic tracks");
+            Assert.IsNotNull(b, "its clone is not on kinematic tracks");
+            var drive = clone.GetComponent<DiffDriveController>();
+            Assert.IsTrue(drive == null || !drive.enabled, "the clone's wheel drive still on");
+            foreach (var w in clone.GetComponentsInChildren<WheelCollider>(true)) Assert.IsFalse(w.enabled, "a wheel on");
+            Log($"the source drives on {a.TwistTopic}, its clone on {b.TwistTopic}");
+            StringAssert.Contains("mst110cr_2", b.TwistTopic, "the clone listens on its source's topic");
+            Assert.AreNotEqual(a.TwistTopic, b.TwistTopic);
+            float restA = source.transform.position.y - H(source.transform.position);
+            float restB = clone.transform.position.y - H(clone.transform.position);
+            Log($"at rest: the source {restA:F3} m, its clone {restB:F3} m over the ground (spawned 0.6 m up)");
+            Assert.AreEqual(restA, restB, 0.05f, "the clone not down on its tracks");
+
+            Vector3 a0 = source.transform.position, b0 = clone.transform.position;
+            b.SetCommand(0.5, 0.0);
+            yield return Seconds(4f);
+            b.SetCommand(0.0, 0.0);
+            yield return Seconds(1.5f);
+            float movedB = Vector3.Distance(b0, clone.transform.position);
+            float movedA = Vector3.Distance(a0, source.transform.position);
+            Log($"the clone drove {movedB:F2} m; its source moved {movedA:F3} m");
+            Assert.Greater(movedB, 1.5f, "the clone did not drive");
+            Assert.Less(movedA, 0.05f, "the source moved with its clone's command");
+            // a clone's point cloud visualiser throws every frame with the visualisers on (a run's are off: the
+            // recorder's "visualizers": "off") - gone before the next test, which it would fail
+            Object.Destroy(clone);
+            yield return Seconds(0.5f);
+        }
     }
 }
 #endif
