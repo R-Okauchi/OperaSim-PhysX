@@ -47,6 +47,26 @@ public class CapTrackKinematic : MonoBehaviour
     private Vector3 hubInRoot;
     private bool started;
 
+    /// <summary>A machine of the simulator's own (its WheelColliders and DiffDriveController) driven by this instead, as
+    /// it stands now: its hub the root, as high over the ground under it as it is (a machine at rest on its wheels), its
+    /// tracks' contact and its turn's rate as given (0: this component's). zx120's WheelColliders drive with a gain
+    /// that cannot climb a bench's 16 deg ramp (750 N m per m/s on six wheels of 0.25 m: some 8 kN at its 0.46 m/s
+    /// cruise against the 40 kN its 15 t needs there - r28, 11-02: it slid down the ramp's foot at up to 1.5 m/s) nor
+    /// turn on the flat faster than about 0.07 rad/s. Awake switches the drive and the wheels off, before the drive's
+    /// Start (a scene's machine as the scene has loaded: CapCycleRecorder's placements) or after it.</summary>
+    public static CapTrackKinematic Fit(GameObject root, float halfLength, float halfGauge, float maxAngular)
+    {
+        Terrain t = SoilParticleSettings.instance != null ? SoilParticleSettings.instance.GetComponent<Terrain>()
+                                                          : Terrain.activeTerrain;
+        float ground = t != null ? t.SampleHeight(root.transform.position) + t.transform.position.y : float.NaN;
+        var k = root.AddComponent<CapTrackKinematic>();
+        if (halfLength > 0f) k.halfLength = halfLength;
+        if (halfGauge > 0f) k.halfGauge = halfGauge;
+        if (maxAngular > 0f) k.maxAngular = maxAngular;
+        if (!float.IsNaN(ground)) k.hubAboveGround = root.transform.position.y - ground;
+        return k;
+    }
+
     /// <summary>The command a test gives in place of cmd_vel (ROS: linear forward [m/s], angular counter-clockwise from above
     /// [rad/s]).</summary>
     public void SetCommand(double linear, double angular)

@@ -24,6 +24,8 @@ using Unity.Robotics.ROSTCPConnector;
 /// 機体の置き直し (任意): "placements": [{"name": "ic120", "x": -40, "y": 35, "set_yaw": false, "yaw_deg": 0}, ...]
 ///   シーンの読み込み直後 (物理の最初の 1 歩の前) に、その名前の機体を ROS/world の (x, y) へ (地面からの高さはそのまま、
 ///   set_yaw なら ROS の yaw_deg の向きへ)。使わない機体をフィールドの端へ寄せる・録画の配置を決めるため (2026-10-15)。
+///   "kinematic_tracks": true (任意、"track_half_length"・"track_half_gauge"・"max_angular_rps"): 置いた所から
+///   CapTrackKinematic で走る (車輪では登れない坂のある機体: zx120 の台への坂、2026-11-02)。
 /// 地形の書き出し (任意): "terrain_dump": "/path/prefix" → prefix.json と prefix_&lt;i&gt;.f32 (各地形の高さ、行 = Unity z)。
 /// ROS の接続先 (任意): "ros_ip": "100.106.45.66", "ros_port": 10000 → ROSConnectionPrefab の代わりにそこへ繋ぐ。
 /// 土 (任意): "soil_particles": "off" → 粒子を出さない (SoilParticleSettings.particles = false: 掘った量はバケットと荷台が
@@ -62,6 +64,11 @@ public class CapCycleRecorder : MonoBehaviour
         public float x;                   // ROS/world [m]
         public float y;
         public bool set_yaw;              // true: yaw_deg (ROS、+x から反時計回り) へ向ける。false: 向きはそのまま
+        public bool kinematic_tracks;     // true: its tracks driven as CapTrackKinematic drives them, from where it is placed
+                                          // (a machine whose WheelColliders cannot climb its way: zx120 up a ramp, 11-02)
+        public float track_half_length;   // ... their contact either side of the hub [m] (0: CapTrackKinematic's)
+        public float track_half_gauge;    // ... their centres either side of it [m] (0: its)
+        public float max_angular_rps;     // ... its turn's rate at most [rad/s] (0: its)
         public float yaw_deg;
     }
 
@@ -430,6 +437,13 @@ public class CapCycleRecorder : MonoBehaviour
             }
             Debug.Log($"[{nameof(CapCycleRecorder)}] placed {p.name} at ({p.x:F1}, {p.y:F1})" +
                       (p.set_yaw ? $" yaw {p.yaw_deg:F0} deg" : "") + $" (Unity {to})");
+            if (p.kinematic_tracks)
+            {
+                var k = CapTrackKinematic.Fit(go, p.track_half_length, p.track_half_gauge, p.max_angular_rps);
+                Debug.Log($"[{nameof(CapCycleRecorder)}] {p.name}: kinematic tracks (half length {k.halfLength:F2} m, " +
+                          $"half gauge {k.halfGauge:F2} m, hub {k.hubAboveGround:F3} m over the ground, turn at most " +
+                          $"{k.maxAngular:F2} rad/s)");
+            }
         }
     }
 
