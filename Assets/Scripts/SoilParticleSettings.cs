@@ -161,6 +161,10 @@ public class SoilParticleSettings : MonoBehaviour
     private readonly HashSet<int> dirtyBlocks = new HashSet<int>();
     private const int DirtyBlock = 16;
     private const float DirtyMarginM = 6f;
+    // A sync this slow is said with the blocks it copies: kept for ever, every block a run has changed is copied every
+    // syncPeriod, and a frame of 1.2-1.7 s came now and then late in a run with five machines' cameras on the GPU -
+    // every machine's pose went stale at once (11-02, the chain's r32 and r35). Said, to see whether these copies are it.
+    private const long SlowSyncMs = 250;
 
     /// <summary>
     /// 1 回の掘削 (ModifyTerrain の diff = 粒子の体積) が地形から取る量 [m3]。Dig.compute は 3×3 の高さの点に
@@ -872,9 +876,12 @@ public class SoilParticleSettings : MonoBehaviour
         // went between the two buffers - the kernel leaves out what is past the texture)
         cs.Dispatch(thermalKernelIdx, (xRes + 31) / 32, (yRes + 31) / 32, 1);
 
+        var syncWatch = System.Diagnostics.Stopwatch.StartNew();
+        bool synced = false;
         if (timeElapsed >= syncPeriod)
         {
             //Debug.Log("SoilParticle sync.");
+            synced = true;
 
             RenderTexture.active = heightmapRT1;
 
@@ -921,12 +928,18 @@ public class SoilParticleSettings : MonoBehaviour
             timeElapsed = 0.0f;
         }
 
+        long copiedMs = syncWatch.ElapsedMilliseconds;
         if (!tiler) {
             terrainData.SyncHeightmap();
         } else {
             foreach (var t in tiler.terrains) {
                 t.GetComponent<Terrain>().terrainData.SyncHeightmap();
             }
+        }
+        if (synced && syncWatch.ElapsedMilliseconds >= SlowSyncMs)
+        {
+            Debug.LogWarning($"[CapSoil] heightmap sync took {syncWatch.ElapsedMilliseconds} ms (copies {copiedMs} ms) "
+                             + $"for {dirtyBlocks.Count} changed blocks of {DirtyBlock}x{DirtyBlock}");
         }
 
         // swap
