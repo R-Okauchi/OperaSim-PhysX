@@ -39,10 +39,12 @@ public class CapScenarioOps : MonoBehaviour
     [Serializable]
     public class TerrainOp
     {
-        public string op;                   // flatten
+        public string op;                   // flatten, or ramp (the height going from z to z_to along the rectangle)
         public float x0, y0, x1, y1;        // ROS rectangle
         public float z;                     // the height [m] (world), or above the rectangle's mean height (z_relative)
         public bool z_relative;
+        public float z_to;                  // ramp: the height [m] (world) at the rectangle's far end (x1 or y1) ...
+        public string along = "x";          // ... going along ROS x (from x0 to x1) or y (from y0 to y1)
         public float noise_m;               // roughness: +-noise_m, smooth over ~1 m
         public int seed;
     }
@@ -257,10 +259,12 @@ public class CapScenarioOps : MonoBehaviour
     }
 
     /// <summary>Flatten a ROS rectangle of the terrain to a height, with smooth roughness (the CPU heights: the soil's
-    /// working heightmap is built from them when it starts).</summary>
+    /// working heightmap is built from them when it starts) - or, a ramp, from z at its near end to z_to at its far one
+    /// along ROS x or y (a machine's way up onto a bench: 11-02, CAP's chain from the machines' yard).</summary>
     private static void Shape(TerrainOp op)
     {
-        if (op.op != "flatten") return;
+        bool ramp = op.op == "ramp";
+        if (op.op != "flatten" && !ramp) return;
         var terrain = Terrain.activeTerrain;
         if (terrain == null) return;
         var d = terrain.terrainData;
@@ -290,10 +294,21 @@ public class CapScenarioOps : MonoBehaviour
         {
             float wx = (c0 + c) * cell, wz = (r0 + r) * cell;
             float n = op.noise_m > 0f ? (Mathf.PerlinNoise(ox + wx * 0.8f, oy + wz * 0.8f) * 2f - 1f) * op.noise_m : 0f;
-            heights[r, c] = Mathf.Clamp01((z + n - p.y) / size.y);
+            float at = z;
+            if (ramp)
+            {
+                // ROS x <- Unity z, ROS y <- -Unity x: this vertex's way along the ramp, 0 at its near end, 1 at its far
+                float t = op.along == "y" ? (-(p.x + wx) - op.y0) / Mathf.Max(op.y1 - op.y0, 1e-3f)
+                                          : ((p.z + wz) - op.x0) / Mathf.Max(op.x1 - op.x0, 1e-3f);
+                at = Mathf.Lerp(op.z, op.z_to, Mathf.Clamp01(t));
+            }
+            heights[r, c] = Mathf.Clamp01((at + n - p.y) / size.y);
         }
         d.SetHeights(c0, r0, heights);
-        Debug.Log($"[{nameof(CapScenarioOps)}] flattened ({op.x0}, {op.y0})..({op.x1}, {op.y1}) to {z:F3} m +-{op.noise_m} m");
+        if (ramp)
+            Debug.Log($"[{nameof(CapScenarioOps)}] ramp ({op.x0}, {op.y0})..({op.x1}, {op.y1}) from {op.z:F3} to {op.z_to:F3} m along {op.along}");
+        else
+            Debug.Log($"[{nameof(CapScenarioOps)}] flattened ({op.x0}, {op.y0})..({op.x1}, {op.y1}) to {z:F3} m +-{op.noise_m} m");
     }
 
     // ---- once the soil runs
