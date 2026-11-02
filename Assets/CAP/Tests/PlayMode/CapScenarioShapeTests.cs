@@ -44,5 +44,31 @@ namespace CapKit.Tests
             Assert.AreEqual(0.75f, H(34.25f, -45f), 0.05f, "a ramp along x: its middle");
             Assert.AreEqual(0.0f, H(38.4f, -45f), 0.05f, "a ramp along x: its foot");
         }
+
+        [UnityTest, Timeout(300000)]
+        public IEnumerator AMesaStandsFlatOnTopAndSlopesDownToTheGroundAllRound()
+        {
+            LogAssert.ignoreFailingMessages = true;
+            yield return CapTestScene.LoadFresh(Scene);
+            yield return null;
+            var terrain = Terrain.activeTerrain;
+            Assert.IsNotNull(terrain, "no terrain");
+            terrain.terrainData = Object.Instantiate(terrain.terrainData);
+            var collider = terrain.GetComponent<TerrainCollider>();
+            if (collider != null) collider.terrainData = terrain.terrainData;
+            float H(float rx, float ry) => terrain.SampleHeight(new Vector3(-ry, 0f, rx)) + terrain.transform.position.y;
+            float side = H(28f + 2.8f, -45f), corner = H(28f + 2f, -42f + 2f), out1 = H(28f + 6f, -45f);
+            CapScenarioOps.ShapeTerrain(new CapScenarioOps.Config
+            {
+                terrain = new[] { new CapScenarioOps.TerrainOp { op = "mesa", x0 = 20f, y0 = -48f, x1 = 28f, y1 = -42f,
+                                                                 z = 1.5f, run_m = 5.6f } }
+            });
+            Assert.AreEqual(1.5f, H(24f, -45f), 0.02f, "its top");
+            Assert.AreEqual(1.5f, H(27.9f, -42.1f), 0.03f, "its top's corner");
+            Assert.AreEqual(Mathf.Max((1.5f + side) / 2f, side), H(28f + 2.8f, -45f), 0.05f, "half way down its side");
+            float off = Mathf.Sqrt(8f) / 5.6f;                     // the corner: by the distance to the top
+            Assert.AreEqual(Mathf.Max(Mathf.Lerp(1.5f, corner, off), corner), H(28f + 2f, -42f + 2f), 0.06f, "its corner");
+            Assert.AreEqual(out1, H(28f + 6f, -45f), 0.01f, "past its side: the ground as it was");
+        }
     }
 }

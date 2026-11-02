@@ -39,12 +39,14 @@ public class CapScenarioOps : MonoBehaviour
     [Serializable]
     public class TerrainOp
     {
-        public string op;                   // flatten, or ramp (the height going from z to z_to along the rectangle)
+        public string op;                   // flatten, ramp (the height going from z to z_to along the rectangle), or
+                                            // mesa (a flat top with sloped sides run_m wide all round it)
         public float x0, y0, x1, y1;        // ROS rectangle
         public float z;                     // the height [m] (world), or above the rectangle's mean height (z_relative)
         public bool z_relative;
         public float z_to;                  // ramp: the height [m] (world) at the rectangle's far end (x1 or y1) ...
         public string along = "x";          // ... going along ROS x (from x0 to x1) or y (from y0 to y1)
+        public float run_m;                 // mesa: its sides' horizontal run [m] (their slope: atan(height / run))
         public float noise_m;               // roughness: +-noise_m, smooth over ~1 m
         public int seed;
     }
@@ -263,6 +265,7 @@ public class CapScenarioOps : MonoBehaviour
     /// along ROS x or y (a machine's way up onto a bench: 11-02, CAP's chain from the machines' yard).</summary>
     private static void Shape(TerrainOp op)
     {
+        if (op.op == "mesa") { Mesa(op); return; }
         bool ramp = op.op == "ramp";
         if (op.op != "flatten" && !ramp) return;
         var terrain = Terrain.activeTerrain;
@@ -309,6 +312,61 @@ public class CapScenarioOps : MonoBehaviour
             Debug.Log($"[{nameof(CapScenarioOps)}] ramp ({op.x0}, {op.y0})..({op.x1}, {op.y1}) from {op.z:F3} to {op.z_to:F3} m along {op.along}");
         else
             Debug.Log($"[{nameof(CapScenarioOps)}] flattened ({op.x0}, {op.y0})..({op.x1}, {op.y1}) to {z:F3} m +-{op.noise_m} m");
+    }
+
+    /// <summary>A mesa: the ROS rectangle raised to z (world, or over its mean height: z_relative) and its sides sloping
+    /// down to the ground about it over run_m (rounded at its corners: by the distance to the rectangle) - never below
+    /// the ground there. A bench whose edge no machine's planner reads as a cliff, that a loader drives up onto from any
+    /// side (11-02, CAP's chain from the machines' yard: a 1.5 m cliff's steep band blocked the carrier's slot below
+    /// it and the loader's stand on it at once).</summary>
+    private static void Mesa(TerrainOp op)
+    {
+        var terrain = Terrain.activeTerrain;
+        if (terrain == null || op.run_m <= 0f) return;
+        var d = terrain.terrainData;
+        int res = d.heightmapResolution;
+        Vector3 p = terrain.transform.position, size = d.size;
+        float run = op.run_m;
+        // ROS x <- Unity z (rows), ROS y <- -Unity x (columns): the top grown by its sides
+        float ux0 = -op.y1 - run, ux1 = -op.y0 + run, uz0 = op.x0 - run, uz1 = op.x1 + run;
+        int c0 = Mathf.Clamp(Mathf.FloorToInt((ux0 - p.x) / size.x * (res - 1)), 0, res - 1);
+        int c1 = Mathf.Clamp(Mathf.CeilToInt((ux1 - p.x) / size.x * (res - 1)), 0, res - 1);
+        int r0 = Mathf.Clamp(Mathf.FloorToInt((uz0 - p.z) / size.z * (res - 1)), 0, res - 1);
+        int r1 = Mathf.Clamp(Mathf.CeilToInt((uz1 - p.z) / size.z * (res - 1)), 0, res - 1);
+        int w = c1 - c0 + 1, h = r1 - r0 + 1;
+        var now = d.GetHeights(c0, r0, w, h);
+        float z = op.z;
+        if (op.z_relative)
+        {
+            // over the top's own mean height (its ground's, the site flattened first)
+            double sum = 0.0;
+            int n = 0;
+            float cell0 = size.x / (res - 1);
+            for (int r = 0; r < h; r++)
+            for (int c = 0; c < w; c++)
+            {
+                float rx = p.z + (r0 + r) * cell0, ry = -(p.x + (c0 + c) * cell0);
+                if (rx < op.x0 || rx > op.x1 || ry < op.y0 || ry > op.y1) continue;
+                sum += now[r, c];
+                n++;
+            }
+            z += (n > 0 ? (float)(sum / n) : 0f) * size.y + p.y;
+        }
+        float cell = size.x / (res - 1);
+        for (int r = 0; r < h; r++)
+        for (int c = 0; c < w; c++)
+        {
+            float rx = p.z + (r0 + r) * cell, ry = -(p.x + (c0 + c) * cell);
+            float dx = Mathf.Max(0f, Mathf.Max(op.x0 - rx, rx - op.x1));
+            float dy = Mathf.Max(0f, Mathf.Max(op.y0 - ry, ry - op.y1));
+            float off = Mathf.Sqrt(dx * dx + dy * dy);
+            if (off >= run) continue;
+            float ground = now[r, c] * size.y + p.y;
+            float at = Mathf.Lerp(z, ground, off / run);
+            now[r, c] = Mathf.Clamp01((Mathf.Max(at, ground) - p.y) / size.y);
+        }
+        d.SetHeights(c0, r0, now);
+        Debug.Log($"[{nameof(CapScenarioOps)}] mesa ({op.x0}, {op.y0})..({op.x1}, {op.y1}) at {z:F3} m, its sides {run:F1} m");
     }
 
     // ---- once the soil runs
